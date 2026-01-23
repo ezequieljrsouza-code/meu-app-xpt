@@ -31,7 +31,7 @@ def load_ocr():
 reader = load_ocr()
 
 st.title("📦 Controle de Carregamento SPA1")
-st.write(f"Usuário: **Ezequiel Miranda**")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- PERSISTÊNCIA DE DADOS ---
 # Nota: No Streamlit Cloud, o session_state limpa no refresh. 
@@ -130,3 +130,4 @@ if tem_placa:
     if st.button("📋 COPIAR PARA WHATSAPP"):
         st.copy_to_clipboard(res_texto)
         st.toast("Copiado!")
+
