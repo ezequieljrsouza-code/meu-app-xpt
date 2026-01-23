@@ -58,7 +58,7 @@ with col_h2:
                 st.session_state.dados_controle[n_id] = {"local": n_loc, "janela": "00:00", "letra": "?", "veiculos": []}
                 st.rerun()
 
-uploaded_file = st.file_uploader("Upload do Print SPA1", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -127,6 +127,7 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
 
 
