@@ -28,7 +28,7 @@ def load_ocr():
 
 reader = load_ocr()
 
-st.title("📦 Controle de Carregamento SPA1")
+st.title("📦 Controle de Carregamento XPT SPA1 - PM")
 st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- PERSISTÊNCIA DE DADOS ---
@@ -127,5 +127,6 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
 
