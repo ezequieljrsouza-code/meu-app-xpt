@@ -1,3 +1,14 @@
+# --- ESCONDER MENU E LINKS DO GITHUB ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            #viewer-badge {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 import streamlit as st
 import easyocr
 import numpy as np
@@ -130,4 +141,5 @@ if tem_placa:
     if st.button("📋 COPIAR PARA WHATSAPP"):
         st.copy_to_clipboard(res_texto)
         st.toast("Copiado!")
+
 
