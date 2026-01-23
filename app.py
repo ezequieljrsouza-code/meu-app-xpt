@@ -57,7 +57,8 @@ with col_h2:
             if n_id and n_id not in st.session_state.dados_controle:
                 st.session_state.dados_controle[n_id] = {"local": n_loc, "janela": "00:00", "letra": "?", "veiculos": []}
                 st.rerun()
-
+                        
+#UPLOAD DE IMAGEM
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
@@ -78,7 +79,7 @@ if uploaded_file:
                         st.session_state.dados_controle[current_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
         st.rerun()
 
-# --- EDIÇÃO ---
+# --- EDIÇÃO CAIXAS DE PLACAS ---
 for rota in list(st.session_state.dados_controle.keys()):
     info = st.session_state.dados_controle[rota]
     with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
@@ -91,39 +92,30 @@ for rota in list(st.session_state.dados_controle.keys()):
         if cr.button("🗑️", key=f"dr_{rota}"):
             del st.session_state.dados_controle[rota]
             st.rerun()
-                    
-#CAIXAS E BOTÕES DOS VEÍCULOS
-for idx, v in enumerate(info['veiculos']):
-            # Ajuste de proporção: as duas primeiras colunas crescem, as de ícones ficam fixas e pequenas
-            # Isso força o alinhamento horizontal mesmo em telas estreitas de celular
-            c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
-            
+        
+        for idx, v in enumerate(info['veiculos']):
+            # Adicionado coluna para o botão de mover
+            c1, c2, c_move, c3 = st.columns([2, 2, 0.7, 0.5])
             v['placa'] = c1.text_input("Placa", value=v['placa'], key=f"p_{rota}_{idx}").upper()
-            
-            v['status'] = c2.selectbox("Status", 
-                                      ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
+            v['status'] = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
                                       index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"].index(v['status']),
                                       key=f"s_{rota}_{idx}")
             
-            # Coluna do botão de mover (Pop-over)
+            # --- LÓGICA DE MOVER VEÍCULO ---
             with c_move:
-                # Adicionado um pequeno ajuste de margem para alinhar com o topo dos inputs
-                st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
                 with st.popover("🔄"):
                     st.write("Mover para:")
                     for destino in st.session_state.dados_controle.keys():
                         if destino != rota:
                             if st.button(destino, key=f"move_{rota}_{destino}_{idx}"):
+                                # Copia o veículo para a nova rota e remove da antiga
                                 st.session_state.dados_controle[destino]["veiculos"].append(v)
                                 info['veiculos'].pop(idx)
                                 st.rerun()
 
-            # Coluna do botão de excluir
-            with c3:
-                st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-                if st.button("❌", key=f"dv_{rota}_{idx}"):
-                    info['veiculos'].pop(idx)
-                    st.rerun()
+            if c3.button("❌", key=f"dv_{rota}_{idx}"):
+                info['veiculos'].pop(idx)
+                st.rerun()
 
 # --- GERAÇÃO DO TEXTO ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
@@ -151,4 +143,3 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
-
