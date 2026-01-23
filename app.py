@@ -19,15 +19,6 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-@st.cache_resource
-def load_ocr():
-    return easyocr.Reader(['pt'])
-
-reader = load_ocr()
-
-st.title("📦 Controle de Carregamento SPA1")
-st.write(f"Autor: **Ezequiel Miranda**")
-
 # --- NOME NO TOPO ---
 st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
 
@@ -38,6 +29,7 @@ def load_ocr():
 reader = load_ocr()
 
 st.title("📦 Controle de Carregamento SPA1")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- PERSISTÊNCIA DE DADOS ---
 if 'dados_controle' not in st.session_state:
@@ -135,4 +127,5 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
