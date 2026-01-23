@@ -129,7 +129,7 @@ for rota, info in st.session_state.dados_controle.items():
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
         for v in v_validos:
             # Seleção do emoji de status para o final da placa
-            status_emoji = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⏳" if "CARREGAMENTO" in v['status'] else "🚚"
+            status_emoji = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⏳" if "CARREGAMENTO" in v['status'] else "🟡"
             
             # Formatação solicitada: Caminhão na frente + Placa + Status + Emoji de Status
             res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
@@ -148,3 +148,4 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
