@@ -91,30 +91,39 @@ for rota in list(st.session_state.dados_controle.keys()):
         if cr.button("🗑️", key=f"dr_{rota}"):
             del st.session_state.dados_controle[rota]
             st.rerun()
-        
-        for idx, v in enumerate(info['veiculos']):
-            # Adicionado coluna para o botão de mover
-            c1, c2, c_move, c3 = st.columns([2, 2, 0.7, 0.5])
+                    
+#CAIXAS E BOTÕES DOS VEÍCULOS
+for idx, v in enumerate(info['veiculos']):
+            # Ajuste de proporção: as duas primeiras colunas crescem, as de ícones ficam fixas e pequenas
+            # Isso força o alinhamento horizontal mesmo em telas estreitas de celular
+            c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
+            
             v['placa'] = c1.text_input("Placa", value=v['placa'], key=f"p_{rota}_{idx}").upper()
-            v['status'] = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
+            
+            v['status'] = c2.selectbox("Status", 
+                                      ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
                                       index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"].index(v['status']),
                                       key=f"s_{rota}_{idx}")
             
-            # --- LÓGICA DE MOVER VEÍCULO ---
+            # Coluna do botão de mover (Pop-over)
             with c_move:
+                # Adicionado um pequeno ajuste de margem para alinhar com o topo dos inputs
+                st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
                 with st.popover("🔄"):
                     st.write("Mover para:")
                     for destino in st.session_state.dados_controle.keys():
                         if destino != rota:
                             if st.button(destino, key=f"move_{rota}_{destino}_{idx}"):
-                                # Copia o veículo para a nova rota e remove da antiga
                                 st.session_state.dados_controle[destino]["veiculos"].append(v)
                                 info['veiculos'].pop(idx)
                                 st.rerun()
 
-            if c3.button("❌", key=f"dv_{rota}_{idx}"):
-                info['veiculos'].pop(idx)
-                st.rerun()
+            # Coluna do botão de excluir
+            with c3:
+                st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
+                if st.button("❌", key=f"dv_{rota}_{idx}"):
+                    info['veiculos'].pop(idx)
+                    st.rerun()
 
 # --- GERAÇÃO DO TEXTO ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
@@ -142,3 +151,4 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
