@@ -42,7 +42,7 @@ def load_ocr():
 
 reader = load_ocr()
 
-st.title("📦 Controle de Carregamento SPA1")
+st.title("📦 Controle de Carregamento XPT SPA1")
 st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- PERSISTÊNCIA DE DADOS ---
@@ -142,5 +142,6 @@ if tem_placa:
     if st.button("📋 COPIAR PARA WHATSAPP"):
         st.copy_to_clipboard(res_texto)
         st.toast("Copiado!")
+
 
 
