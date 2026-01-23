@@ -3,6 +3,9 @@ import easyocr
 import numpy as np
 from PIL import Image
 import re
+import streamlit.components.v1 as components
+
+st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
 # --- ESCONDER MENU E LINKS DO GITHUB ---
 hide_st_style = """
@@ -10,31 +13,14 @@ hide_st_style = """
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
-            #viewer-badge {visibility: hidden;}
+            .stDeployButton {display:none;}
+            #stDecoration {display:none;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-
-# Configuração da página
-st.set_page_config(page_title="Expedição SPA1", layout="wide")
-
-# --- ESTILO PARA O NOME NO CANTO SUPERIOR DIREITO ---
-st.markdown(
-    """
-    <style>
-    .user-name {
-        position: absolute;
-        top: -50px;
-        right: 0px;
-        font-weight: bold;
-        color: #555;
-    }
-    </style>
-    <div class="user-name">Ezequiel Miranda</div>
-    """,
-    unsafe_allow_html=True
-)
+# --- NOME NO TOPO ---
+st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
 
 @st.cache_resource
 def load_ocr():
@@ -42,12 +28,9 @@ def load_ocr():
 
 reader = load_ocr()
 
-st.title("📦 Controle de Carregamento XPT SPA1")
-st.write(f"Autor: **Ezequiel Miranda**")
+st.title("📦 Controle de Carregamento SPA1")
 
 # --- PERSISTÊNCIA DE DADOS ---
-# Nota: No Streamlit Cloud, o session_state limpa no refresh. 
-# Para persistência real entre sessões, os dados são mantidos enquanto a aba estiver aberta.
 if 'dados_controle' not in st.session_state:
     st.session_state.dados_controle = {
         "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "V", "veiculos": []},
@@ -82,10 +65,8 @@ if uploaded_file:
         with st.spinner("Lendo imagem..."):
             resultados = reader.readtext(np.array(img))
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
-            
             for r in st.session_state.dados_controle:
                 st.session_state.dados_controle[r]["veiculos"] = []
-
             current_xpt = None
             for res in resultados:
                 texto = res[1].upper().strip().replace(" ", "")
@@ -100,30 +81,27 @@ if uploaded_file:
 for rota in list(st.session_state.dados_controle.keys()):
     info = st.session_state.dados_controle[rota]
     with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
-        c_letra, c_hora, c_add, c_del_r = st.columns([1, 2, 1, 0.5])
-        info['letra'] = c_letra.text_input(f"Letra", value=info['letra'], key=f"letra_{rota}")
-        info['janela'] = c_hora.text_input(f"Horário", value=info['janela'], key=f"horario_{rota}")
-        
-        if c_add.button(f"➕ Placa", key=f"add_v_{rota}"):
+        cl, ch, ca, cr = st.columns([1, 2, 1, 0.5])
+        info['letra'] = cl.text_input(f"Letra", value=info['letra'], key=f"l_{rota}")
+        info['janela'] = ch.text_input(f"Hora", value=info['janela'], key=f"h_{rota}")
+        if ca.button(f"➕ Placa", key=f"av_{rota}"):
             info['veiculos'].append({"placa": "", "status": "PENDENTE"})
             st.rerun()
-        
-        if c_del_r.button("🗑️", key=f"del_rota_{rota}"):
+        if cr.button("🗑️", key=f"dr_{rota}"):
             del st.session_state.dados_controle[rota]
             st.rerun()
-        
-        for idx, veiculo in enumerate(info['veiculos']):
-            r_col1, r_col2, r_col3 = st.columns([2, 2, 0.5])
-            veiculo['placa'] = r_col1.text_input("Placa", value=veiculo['placa'], key=f"p_{rota}_{idx}").upper()
-            veiculo['status'] = r_col2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
-                                                index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"].index(veiculo['status']),
-                                                key=f"s_{rota}_{idx}")
-            if r_col3.button("❌", key=f"del_v_{rota}_{idx}"):
+        for idx, v in enumerate(info['veiculos']):
+            c1, c2, c3 = st.columns([2, 2, 0.5])
+            v['placa'] = c1.text_input("Placa", value=v['placa'], key=f"p_{rota}_{idx}").upper()
+            v['status'] = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
+                                      index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"].index(v['status']),
+                                      key=f"s_{rota}_{idx}")
+            if c3.button("❌", key=f"dv_{rota}_{idx}"):
                 info['veiculos'].pop(idx)
                 st.rerun()
 
 # --- GERAÇÃO DO TEXTO ---
-res_texto = f"*CARREGAMENTO PM {data_carregamento}*\n\n"
+res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
@@ -131,17 +109,20 @@ for rota, info in st.session_state.dados_controle.items():
         tem_placa = True
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
         for v in v_validos:
-            emoji = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⏳" if "CARREGAMENTO" in v['status'] else "🚚"
-            res_texto += f"{emoji} {v['placa']} - {v['status']}\n"
+            e = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⏳" if "CARREGAMENTO" in v['status'] else "🚚"
+            res_texto += f"{e} {v['placa']} - {v['status']}\n"
         res_texto += "\n"
 
 st.divider()
 if tem_placa:
     st.subheader("📋 Resultado Final")
-    st.text_area("Copiável:", value=res_texto, height=400)
-    if st.button("📋 COPIAR PARA WHATSAPP"):
-        st.copy_to_clipboard(res_texto)
-        st.toast("Copiado!")
-
-
-
+    st.text_area("Texto formatado:", value=res_texto, height=300)
+    
+    # --- BOTÃO DE COPIAR VIA JAVASCRIPT (Funciona em tudo) ---
+    copy_code = f"""
+    <button style="width: 100%; background-color: #25D366; color: white; border: none; padding: 15px; font-size: 16px; border-radius: 10px; cursor: pointer; font-weight: bold;" 
+    onclick="navigator.clipboard.writeText(`{res_texto}`)">
+    📋 COPIAR PARA WHATSAPP
+    </button>
+    """
+    components.html(copy_code, height=70)
