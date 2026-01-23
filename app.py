@@ -4,7 +4,25 @@ import numpy as np
 from PIL import Image
 import re
 
+# Configuração da página
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
+
+# --- ESTILO PARA O NOME NO CANTO SUPERIOR DIREITO ---
+st.markdown(
+    """
+    <style>
+    .user-name {
+        position: absolute;
+        top: -50px;
+        right: 0px;
+        font-weight: bold;
+        color: #555;
+    }
+    </style>
+    <div class="user-name">Ezequiel Miranda</div>
+    """,
+    unsafe_allow_html=True
+)
 
 @st.cache_resource
 def load_ocr():
@@ -13,8 +31,11 @@ def load_ocr():
 reader = load_ocr()
 
 st.title("📦 Controle de Carregamento SPA1")
+st.write(f"Usuário: **Ezequiel Miranda**")
 
-# --- GERENCIAMENTO DE ROTAS NO SESSION STATE ---
+# --- PERSISTÊNCIA DE DADOS ---
+# Nota: No Streamlit Cloud, o session_state limpa no refresh. 
+# Para persistência real entre sessões, os dados são mantidos enquanto a aba estiver aberta.
 if 'dados_controle' not in st.session_state:
     st.session_state.dados_controle = {
         "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "V", "veiculos": []},
@@ -25,32 +46,31 @@ if 'dados_controle' not in st.session_state:
         "EPA8": {"local": "Mãe do Rio", "janela": "15:30 às 17:30", "letra": "W", "veiculos": []},
     }
 
-# --- CABEÇALHO E ADIÇÃO DE ROTA ---
+# --- CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
     data_carregamento = st.text_input("Data", "22/01/2026")
 
 with col_h2:
-    st.write("**Adicionar Nova Rota**")
-    c_nova_id, c_nova_loc, c_btn = st.columns([1, 1, 1])
-    nova_id = c_nova_id.text_input("ID (Ex: EPA9)", key="new_id").upper()
-    nova_loc = c_nova_loc.text_input("Local", key="new_loc")
-    if c_btn.button("➕ Adicionar"):
-        if nova_id and nova_id not in st.session_state.dados_controle:
-            st.session_state.dados_controle[nova_id] = {"local": nova_loc, "janela": "00:00 às 00:00", "letra": "?", "veiculos": []}
-            st.rerun()
+    with st.expander("➕ Adicionar Nova Rota"):
+        c_id, c_loc, c_b = st.columns([1, 1, 1])
+        n_id = c_id.text_input("ID").upper()
+        n_loc = c_loc.text_input("Local")
+        if c_b.button("Salvar Rota"):
+            if n_id and n_id not in st.session_state.dados_controle:
+                st.session_state.dados_controle[n_id] = {"local": n_loc, "janela": "00:00", "letra": "?", "veiculos": []}
+                st.rerun()
 
 uploaded_file = st.file_uploader("Upload do Print SPA1", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
     img = Image.open(uploaded_file)
-    if st.button("🔍 EXTRAIR PLACAS DA IMAGEM"):
+    if st.button("🔍 EXTRAIR PLACAS"):
         with st.spinner("Lendo imagem..."):
             resultados = reader.readtext(np.array(img))
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
-            # Limpa apenas os veículos, mantém as rotas
             for r in st.session_state.dados_controle:
                 st.session_state.dados_controle[r]["veiculos"] = []
 
@@ -65,7 +85,6 @@ if uploaded_file:
         st.rerun()
 
 # --- EDIÇÃO ---
-st.divider()
 for rota in list(st.session_state.dados_controle.keys()):
     info = st.session_state.dados_controle[rota]
     with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
@@ -77,7 +96,7 @@ for rota in list(st.session_state.dados_controle.keys()):
             info['veiculos'].append({"placa": "", "status": "PENDENTE"})
             st.rerun()
         
-        if c_del_r.button("🗑️", key=f"del_rota_{rota}", help="Excluir esta rota"):
+        if c_del_r.button("🗑️", key=f"del_rota_{rota}"):
             del st.session_state.dados_controle[rota]
             st.rerun()
         
@@ -92,7 +111,7 @@ for rota in list(st.session_state.dados_controle.keys()):
                 st.rerun()
 
 # --- GERAÇÃO DO TEXTO ---
-res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
+res_texto = f"*CARREGAMENTO PM {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
@@ -107,9 +126,7 @@ for rota, info in st.session_state.dados_controle.items():
 st.divider()
 if tem_placa:
     st.subheader("📋 Resultado Final")
-    # Usamos st.code para facilitar a visualização ou st.text_area
-    st.text_area("Texto pronto para WhatsApp (Atualiza ao mudar status):", value=res_texto, height=400)
-    
-    if st.button("📋 COPIAR TEXTO"):
+    st.text_area("Copiável:", value=res_texto, height=400)
+    if st.button("📋 COPIAR PARA WHATSAPP"):
         st.copy_to_clipboard(res_texto)
         st.toast("Copiado!")
