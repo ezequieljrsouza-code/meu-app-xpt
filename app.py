@@ -1,3 +1,9 @@
+import streamlit as st
+import easyocr
+import numpy as np
+from PIL import Image
+import re
+
 # --- ESCONDER MENU E LINKS DO GITHUB ---
 hide_st_style = """
             <style>
@@ -9,11 +15,6 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-import streamlit as st
-import easyocr
-import numpy as np
-from PIL import Image
-import re
 
 # Configuração da página
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
