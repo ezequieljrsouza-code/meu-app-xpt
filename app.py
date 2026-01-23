@@ -22,7 +22,7 @@ with col_h1:
 
 uploaded_file = st.file_uploader("Upload do Print SPA1", type=["jpg", "png", "jpeg"])
 
-# Estrutura base das rotas no Session State para persistência
+# Inicialização do estado
 if 'dados_controle' not in st.session_state:
     st.session_state.dados_controle = {
         "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "V", "veiculos": []},
@@ -60,16 +60,16 @@ if uploaded_file:
 st.divider()
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
-        c1, c2, c3 = st.columns([1, 2, 2])
-        info['letra'] = c1.text_input(f"Letra", value=info['letra'], key=f"letra_{rota}")
-        info['janela'] = c2.text_input(f"Horário", value=info['janela'], key=f"horario_{rota}")
+        c_letra, c_hora, c_add = st.columns([1, 2, 1])
+        info['letra'] = c_letra.text_input(f"Letra", value=info['letra'], key=f"letra_{rota}")
+        info['janela'] = c_hora.text_input(f"Horário", value=info['janela'], key=f"horario_{rota}")
         
-        if c3.button(f"➕ Add Veículo em {rota}", key=f"add_{rota}"):
+        if c_add.button(f"➕ Add", key=f"add_{rota}"):
             info['veiculos'].append({"placa": "", "status": "PENDENTE"})
             st.rerun()
         
         for idx, veiculo in enumerate(info['veiculos']):
-            r_col1, r_col2, r_col3 = st.columns([2, 2, 1])
+            r_col1, r_col2, r_col3 = st.columns([2, 2, 0.5])
             veiculo['placa'] = r_col1.text_input("Placa", value=veiculo['placa'], key=f"p_{rota}_{idx}").upper()
             veiculo['status'] = r_col2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
                                                 index=0, key=f"s_{rota}_{idx}")
@@ -77,29 +77,35 @@ for rota, info in st.session_state.dados_controle.items():
                 info['veiculos'].pop(idx)
                 st.rerun()
 
-# --- GERAÇÃO DE TEXTO ---
+# --- GERAÇÃO AUTOMÁTICA DO TEXTO ---
+res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
+tem_conteudo = False
+
+for rota, info in st.session_state.dados_controle.items():
+    placas_validas = [v for v in info['veiculos'] if v['placa'].strip()]
+    if placas_validas:
+        tem_conteudo = True
+        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\n"
+        res_texto += f"Letra: *{info['letra']}*\n\n"
+        for v in placas_validas:
+            # Emoji dinâmico baseado no status
+            if "FINALIZADO" in v['status']: emoji = "✅"
+            elif "CANCELADO" in v['status']: emoji = "❌"
+            elif "EM CARREGAMENTO" in v['status']: emoji = "⏳"
+            else: emoji = "🚚"
+            
+            res_texto += f"{emoji} {v['placa']} - {v['status']}\n"
+        res_texto += "\n"
+
+# --- ÁREA DE COPIAR (FIXA NO FINAL) ---
 st.divider()
-res_texto = ""
-if any(info['veiculos'] for info in st.session_state.dados_controle.values()):
-    res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
-    for rota, info in st.session_state.dados_controle.items():
-        placas_validas = [v for v in info['veiculos'] if v['placa'].strip()]
-        if placas_validas:
-            res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\n"
-            res_texto += f"Letra: *{info['letra']}*\n\n"
-            for v in placas_validas:
-                emoji = "🚚" if "CANCELADO" not in v['status'] else "❌"
-                res_texto += f"{emoji} {v['placa']} - {v['status']}\n"
-            res_texto += "\n"
-
-if res_texto:
-    st.subheader("📋 Resultado Final")
-    st.text_area("Texto formatado:", res_texto, height=300, key="texto_final")
+if tem_conteudo:
+    st.subheader("📋 Resultado Final (Atualizado em tempo real)")
+    # O texto aqui dentro muda sozinho sempre que você mexe em algo acima
+    st.text_area("Copie o texto abaixo:", res_texto, height=400, key="output_text")
     
-    # Botão de Copiar (Streamlit Nativo)
-    if st.button("📋 COPIAR TEXTO"):
-        st.write("Copiado para a área de transferência!")
+    if st.button("📋 COPIAR PARA WHATSAPP"):
         st.copy_to_clipboard(res_texto)
-
+        st.toast("Copiado com sucesso!")
 else:
-    st.info("Aguardando upload de imagem ou adição manual de veículos.")
+    st.info("O resultado aparecerá aqui assim que houver placas cadastradas.")
