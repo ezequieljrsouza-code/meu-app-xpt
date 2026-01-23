@@ -6,100 +6,100 @@ import re
 
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
-# Inicializa o OCR (Cache para não carregar toda hora)
 @st.cache_resource
 def load_ocr():
     return easyocr.Reader(['pt'])
 
 reader = load_ocr()
 
-st.title("📦 Gerador de Status - Mercado Envios")
+st.title("📦 Controle de Carregamento SPA1")
 
-# --- INPUTS CABEÇALHO ---
-col_h1, col_h2, col_h3 = st.columns(3)
+# --- CABEÇALHO ---
+col_h1, col_h2 = st.columns(2)
 with col_h1:
-    titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
-with col_h2:
+    titulo_geral = st.text_input("Título do Relatório", "CARREGAMENTO PM")
     data_carregamento = st.text_input("Data", "22/01/2026")
-with col_h3:
-    st.write("") # Espaçador
 
 uploaded_file = st.file_uploader("Upload do Print SPA1", type=["jpg", "png", "jpeg"])
 
-# Dicionário padrão para organizar os dados
-dados_extraidos = {
-    "EPA4": {"local": "Marabá", "placas": []},
-    "EPA5": {"local": "Goianésia", "placas": []},
-    "ETO4": {"local": "Parauapebas", "placas": []},
-    "EPA7": {"local": "Canaã", "placas": []},
-    "EPA3": {"local": "Paragominas", "placas": []},
-    "EPA8": {"local": "Mãe do Rio", "placas": []},
-}
+# Estrutura base das rotas no Session State para persistência
+if 'dados_controle' not in st.session_state:
+    st.session_state.dados_controle = {
+        "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "V", "veiculos": []},
+        "EPA5": {"local": "Goianésia", "janela": "14:00 às 15:00", "letra": "X", "veiculos": []},
+        "ETO4": {"local": "Parauapebas", "janela": "14:30 às 16:30", "letra": "U", "veiculos": []},
+        "EPA7": {"local": "Canaã", "janela": "14:30 às 16:30", "letra": "Y", "veiculos": []},
+        "EPA3": {"local": "Paragominas", "janela": "15:30 às 17:30", "letra": "T", "veiculos": []},
+        "EPA8": {"local": "Mãe do Rio", "janela": "15:30 às 17:30", "letra": "W", "veiculos": []},
+    }
 
 if uploaded_file:
     img = Image.open(uploaded_file)
     img_np = np.array(img)
     
-    with st.spinner("Lendo placas e rotas..."):
-        # O OCR lê tudo na imagem
-        resultados = reader.readtext(img_np)
-        
-        texto_completo = " ".join([res[1].upper() for res in resultados])
-        
-        # Regex para identificar placas (Padrão Mercosul e Antigo)
-        padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
-        
-        # Lógica de extração por proximidade (Simplificada)
-        current_xpt = None
-        for res in resultados:
-            texto = res[1].upper().strip()
+    if st.button("🔍 EXTRAIR PLACAS DA IMAGEM"):
+        with st.spinner("Lendo imagem..."):
+            resultados = reader.readtext(img_np)
+            padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
-            # Identifica a Rota (XPT)
-            for rota in dados_extraidos.keys():
-                if rota in texto:
-                    current_xpt = rota
-            
-            # Identifica a Placa e associa à última rota lida
-            if padrao_placa.match(texto) and current_xpt:
-                if texto not in dados_extraidos[current_xpt]["placas"]:
-                    dados_extraidos[current_xpt]["placas"].append(texto)
+            for r in st.session_state.dados_controle:
+                st.session_state.dados_controle[r]["veiculos"] = []
 
-    st.success("Leitura concluída!")
+            current_xpt = None
+            for res in resultados:
+                texto = res[1].upper().strip().replace(" ", "")
+                for rota in st.session_state.dados_controle.keys():
+                    if rota in texto: current_xpt = rota
+                
+                if padrao_placa.match(texto) and current_xpt:
+                    if not any(v['placa'] == texto for v in st.session_state.dados_controle[current_xpt]["veiculos"]):
+                        st.session_state.dados_controle[current_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
+        st.success("Placas extraídas!")
 
-    # --- ÁREA DE EDIÇÃO ---
-    form_final = {}
+# --- ÁREA DE EDIÇÃO DINÂMICA ---
+st.divider()
+for rota, info in st.session_state.dados_controle.items():
+    with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
+        c1, c2, c3 = st.columns([1, 2, 2])
+        info['letra'] = c1.text_input(f"Letra", value=info['letra'], key=f"letra_{rota}")
+        info['janela'] = c2.text_input(f"Horário", value=info['janela'], key=f"horario_{rota}")
+        
+        if c3.button(f"➕ Add Veículo em {rota}", key=f"add_{rota}"):
+            info['veiculos'].append({"placa": "", "status": "PENDENTE"})
+            st.rerun()
+        
+        for idx, veiculo in enumerate(info['veiculos']):
+            r_col1, r_col2, r_col3 = st.columns([2, 2, 1])
+            veiculo['placa'] = r_col1.text_input("Placa", value=veiculo['placa'], key=f"p_{rota}_{idx}").upper()
+            veiculo['status'] = r_col2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
+                                                index=0, key=f"s_{rota}_{idx}")
+            if r_col3.button("🗑️", key=f"del_{rota}_{idx}"):
+                info['veiculos'].pop(idx)
+                st.rerun()
+
+# --- GERAÇÃO DE TEXTO ---
+st.divider()
+res_texto = ""
+if any(info['veiculos'] for info in st.session_state.dados_controle.values()):
+    res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
+    for rota, info in st.session_state.dados_controle.items():
+        placas_validas = [v for v in info['veiculos'] if v['placa'].strip()]
+        if placas_validas:
+            res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\n"
+            res_texto += f"Letra: *{info['letra']}*\n\n"
+            for v in placas_validas:
+                emoji = "🚚" if "CANCELADO" not in v['status'] else "❌"
+                res_texto += f"{emoji} {v['placa']} - {v['status']}\n"
+            res_texto += "\n"
+
+if res_texto:
+    st.subheader("📋 Resultado Final")
+    st.text_area("Texto formatado:", res_texto, height=300, key="texto_final")
     
-    for rota, info in dados_extraidos.items():
-        with st.expander(f"Configurar {rota} - {info['local']}", expanded=True):
-            c1, c2, c3 = st.columns([1, 2, 4])
-            letra = c1.text_input("Letra", value="V", key=f"L_{rota}")
-            janela = c2.text_input("Horário", value="13:00 às 14:00", key=f"H_{rota}")
-            
-            # Transforma a lista de placas extraídas em texto editável
-            placas_iniciais = "\n".join(info["placas"])
-            placas_editadas = c3.text_area("Placas extraídas (edite se necessário)", value=placas_iniciais, key=f"P_{rota}")
-            
-            form_final[rota] = {
-                "local": info["local"],
-                "letra": letra,
-                "janela": janela,
-                "placas": placas_editadas.split("\n")
-            }
+    # Botão de Copiar (Streamlit Nativo)
+    if st.button("📋 COPIAR TEXTO"):
+        st.write("Copiado para a área de transferência!")
+        st.copy_to_clipboard(res_texto)
 
-    # --- GERAÇÃO DO TEXTO WHATSAPP ---
-    if st.button("GERAR TEXTO PARA WHATSAPP"):
-        texto_zap = f"*{titulo_geral} {data_carregamento}*\n\n"
-        
-        for rota, info in form_final.items():
-            # Só adiciona a rota se houver placas digitadas
-            placas_limpas = [p.strip() for p in info["placas"] if p.strip()]
-            if placas_limpas:
-                texto_zap += f"*{rota}* ({info['local']}) ({info['janela']})\n"
-                texto_zap += f"Letra: *{info['letra']}*\n\n"
-                for p in placas_limpas:
-                    texto_zap += f"🚚 {p} - PENDENTE\n"
-                texto_zap += "\n"
-        
-        st.subheader("📋 Pronto para copiar:")
-        st.text_area("Copiável:", texto_zap, height=400)
-        st.info("Dica: No celular, clique e segure no texto acima para selecionar tudo.")
+else:
+    st.info("Aguardando upload de imagem ou adição manual de veículos.")
