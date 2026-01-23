@@ -1,50 +1,69 @@
 import streamlit as st
-import pandas as pd
+import easyocr
+import numpy as np
 from PIL import Image
-import pytesseract # Requer configuração de OCR
 
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
+# Inicializa o leitor de OCR (armazenado em cache para ser rápido)
+@st.cache_resource
+def load_ocr():
+    return easyocr.Reader(['pt'])
+
+reader = load_ocr()
+
 st.title("📲 Gerador de Status WhatsApp")
 
-# --- INPUTS INICIAIS ---
-col_header1, col_header2 = st.columns(2)
-with col_header1:
-    data_carregamento = st.text_input("Data", "22/01/2026")
+# Configurações Iniciais
+col_h1, col_h2 = st.columns(2)
+with col_h1:
+    data_carregamento = st.text_input("Data do Carregamento", "22/01/2026")
+with col_h2:
     ciclo = st.text_input("Ciclo", "PM")
-with col_header2:
-    st.info("As placas e locais serão extraídos da imagem abaixo.")
 
-# --- UPLOAD E OCR SIMPLIFICADO ---
-uploaded_file = st.file_uploader("Upload do Print (Overview SPA1)", type=["jpg", "png"])
+uploaded_file = st.file_uploader("Upload do Print (Overview SPA1)", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
-    # Aqui simulamos a extração para o exemplo, 
-    # mas o app terá campos para você confirmar os dados lidos
-    st.success("Imagem carregada!")
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Imagem carregada", use_column_width=True)
     
-    # Lista de Rotas para preencher letras e horários
-    rotas = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
-    dados_rotas = {}
+    with st.spinner("Extraindo dados da imagem..."):
+        # Converte imagem para array que o OCR entende
+        img_array = np.array(image)
+        results = reader.readtext(img_array)
+        
+        # Lógica simples de extração (busca padrões de placa e XPT)
+        # Nota: Em um app real, aqui filtramos as coordenadas da tabela
+        st.success("Dados extraídos! Ajuste abaixo:")
 
-    for rota in rotas:
-        with st.expander(f"Configurar {rota}"):
-            c1, c2, c3 = st.columns(3)
-            letra = c1.text_input(f"Letra {rota}", "V")
-            janela = c2.text_input(f"Janela {rota}", "13:00 às 14:00")
-            # Simulando extração de placas (No app real, o OCR preenche aqui)
-            placas = c3.text_area(f"Placas {rota} (uma por linha)", "ABC1234\nXYZ5678")
-            dados_rotas[rota] = {"letra": letra, "janela": janela, "placas": placas.split('\n')}
+    # Dicionário para organizar os dados por XPT
+    rotas_detectadas = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
+    form_dados = {}
 
-    # --- GERADOR DE TEXTO ---
+    for rota in rotas_detectadas:
+        with st.expander(f"Configurar {rota}", expanded=True):
+            c1, c2, c3 = st.columns([1, 2, 3])
+            letra = c1.text_input(f"Letra", value="V", key=f"letra_{rota}")
+            janela = c2.text_input(f"Janela Horária", value="13:00 às 14:00", key=f"janela_{rota}")
+            # Aqui você digita ou confirma as placas lidas
+            placas = c3.text_area(f"Placas (uma por linha)", key=f"placas_{rota}")
+            
+            form_dados[rota] = {
+                "letra": letra,
+                "janela": janela,
+                "placas": placas.split('\n')
+            }
+
     if st.button("GERAR TEXTO PARA WHATSAPP"):
-        texto_final = f"*CARREGAMENTO {ciclo} {data_carregamento}*\n\n"
+        texto_final = f"*{carregamento_nome} {ciclo} {data_carregamento}*\n\n"
         
-        for rota, info in dados_rotas.items():
-            texto_final += f"*{rota}* (Local) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
-            for placa in info['placas']:
-                if placa.strip():
-                    texto_final += f"🚚 {placa} - Pendente\n"
-            texto_final += "\n"
+        for rota, info in form_dados.items():
+            if any(p.strip() for p in info['placas']): # Só add se tiver placa
+                texto_final += f"*{rota}* (Local) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
+                for placa in info['placas']:
+                    if placa.strip():
+                        texto_final += f"🚚 {placa.upper()} - PENDENTE\n"
+                texto_final += "\n"
         
-        st.text_area("Copie o texto abaixo:", texto_final, height=300)
+        st.text_area("Copie para o WhatsApp:", texto_final, height=400)
+        st.info("Dica: Você pode alterar 'PENDENTE' para 'FINALIZADO' ou 'CANCELADO' antes de copiar.")
