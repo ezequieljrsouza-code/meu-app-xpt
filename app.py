@@ -180,18 +180,25 @@ for rota, info in st.session_state.dados_controle.items():
                 st.rerun()
 
 # --- 10. WHATSAPP ---
+# --- GERAÇÃO DO TEXTO ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
-tem_dados = False
+tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
-    if info['veiculos']:
-        tem_dados = True
-        res_texto += f"*{rota}* - Ilha: *{info['letra']}*\n"
-        for v in info['veiculos']:
-            res_texto += f"🚚 {v['placa']} - {v['status']}\n"
+    v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
+    if v_validos:
+        tem_placa = True
+        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
+        for v in v_validos:
+            # Seleção do emoji de status para o final da placa
+            status_emoji = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⌚" if "AGUARDANDO CHEGAR" in v['status']  else "⏳" if "CARREGAMENTO" in v['status'] else "🟡"
+            
+            # Formatação solicitada: Caminhão na frente + Placa + Status + Emoji de Status
+            res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
         res_texto += "\n"
 
 if tem_dados:
     st.divider()
     st.text_area("Texto para Copiar", res_texto, height=150)
     components.html(f'<button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="navigator.clipboard.writeText(`{res_texto}`)">COPIAR WHATSAPP</button>', height=50)
+
 
