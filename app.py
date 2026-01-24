@@ -50,7 +50,8 @@ def load_ocr():
 
 reader = load_ocr()
 
-st.title("📦 Controle de Carregamento SPA1 (Sincronizado)")
+st.title("📦 Controle de Carregamento XPT SPA1 (Sincronizado)")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- INICIALIZAÇÃO / CARREGAMENTO ---
 if 'dados_controle' not in st.session_state:
@@ -181,3 +182,4 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
