@@ -32,7 +32,19 @@ def carregar_do_firebase():
     doc = db.collection("expedicao").document("config").get()
     return doc.to_dict() if doc.exists else None
 
-# --- 3. ESTILIZAÇÃO CSS ---
+# --- 3. FUNÇÕES DE CALLBACK (UPDATE RÁPIDO) ---
+def atualizar_ilha(rota):
+    # Pega o valor novo direto do widget pelo key e salva
+    novo_valor = st.session_state[f"l_{rota}"]
+    st.session_state.dados_controle[rota]['letra'] = novo_valor
+    salvar_no_firebase()
+
+def atualizar_hora(rota):
+    novo_valor = st.session_state[f"h_{rota}"]
+    st.session_state.dados_controle[rota]['janela'] = novo_valor
+    salvar_no_firebase()
+
+# --- 4. ESTILIZAÇÃO CSS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -46,7 +58,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. TÍTULOS ---
+# --- 5. TÍTULOS ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
 st.write(f"Autor: **Ezequiel Miranda**")
 
@@ -56,7 +68,7 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 5. INICIALIZAÇÃO DE DADOS ---
+# --- 6. INICIALIZAÇÃO DE DADOS ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
@@ -71,7 +83,7 @@ if 'dados_controle' not in st.session_state:
             "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
 
-# --- 6. BOTÕES DE AÇÃO ---
+# --- 7. BOTÕES DE AÇÃO ---
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
@@ -87,14 +99,14 @@ with col_clear:
         salvar_no_firebase()
         st.rerun()
 
-# --- 7. CABEÇALHO ---
+# --- 8. CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 8. EXTRAÇÃO ---
+# --- 9. EXTRAÇÃO ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -126,22 +138,14 @@ if uploaded_file:
             salvar_no_firebase()
             st.rerun()
 
-# --- 9. EDIÇÃO INSTANTÂNEA ---
+# --- 10. EDIÇÃO INSTANTÂNEA ---
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
         
-        nova_ilha = c_l.text_input("Ilha", info['letra'], key=f"l_{rota}")
-        if nova_ilha != info['letra']:
-            st.session_state.dados_controle[rota]['letra'] = nova_ilha
-            salvar_no_firebase()
-            st.rerun()
-
-        nova_hora = c_h.text_input("Hora", info['janela'], key=f"h_{rota}")
-        if nova_hora != info['janela']:
-            st.session_state.dados_controle[rota]['janela'] = nova_hora
-            salvar_no_firebase()
-            st.rerun()
+        # Correção rápida: usa on_change para salvar assim que der Enter
+        c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
+        c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
         if c_a.button("➕ Placa", key=f"add_{rota}"):
             st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
@@ -180,7 +184,7 @@ for rota, info in st.session_state.dados_controle.items():
                 salvar_no_firebase()
                 st.rerun()
 
-# --- 10. WHATSAPP ---
+# --- 11. WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
@@ -200,7 +204,7 @@ for rota, info in st.session_state.dados_controle.items():
 
 if tem_placa:
     st.divider()
-    # CAMPO AUMENTADO PARA 400 PIXELS
+    # CAMPO AUMENTADO PARA 800 PIXELS (Conforme seu pedido)
     st.text_area("Texto para Copiar", res_texto, height=800)
     
     # Botão com função de cópia e alerta
@@ -218,6 +222,3 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
-
-
