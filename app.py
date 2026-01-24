@@ -34,23 +34,19 @@ def carregar_do_firebase():
         return doc.to_dict()
     return None
 
-# --- 3. ESTILIZAÇÃO CSS ESPECÍFICA ---
+# --- 3. ESTILIZAÇÃO CSS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
     
-    /* APENAS o botão Limpar Tudo (que está na col_clear) fica vermelho */
+    /* APENAS o botão Limpar Tudo fica vermelho */
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"] {
         background-color: #ff4b4b !important;
         color: white !important;
         border: none !important;
     }
-    div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"]:hover {
-        background-color: #ff3333 !important;
-    }
     
-    /* Garante que o botão Sincronizar seja azul */
     div.stButton > button:first-child[kind="primary"] {
         background-color: #007bff;
         border: none;
@@ -67,6 +63,7 @@ def load_ocr():
 reader = load_ocr()
 
 st.title("📦 Controle de Carregamento XPT SPA1")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- 4. BOTÕES SUPERIORES ---
 col_sync, col_clear = st.columns([1, 1])
@@ -78,7 +75,6 @@ with col_sync:
             st.rerun()
 
 with col_clear:
-    # Este botão receberá o estilo vermelho pelo CSS acima
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
@@ -106,34 +102,40 @@ with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 7. EXTRAÇÃO (Placas + Ilhas) ---
+# --- 7. EXTRAÇÃO MELHORADA (Foco na nova imagem) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR E SINCRONIZAR"):
-        with st.spinner("Lendo imagem..."):
+        with st.spinner("Analisando imagem de alta qualidade..."):
             resultados = reader.readtext(np.array(img))
-            texto_lista = [res[1].upper().strip() for res in resultados]
+            # Texto limpo para busca: remove espaços e hifens extras
+            texto_lista = [res[1].upper().replace(" ", "").replace("-", "") for res in resultados]
+            
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
             for i, texto in enumerate(texto_lista):
+                # 1. Lógica para Ilhas (Ex: >A, >B, W, X...)
                 for rota_id in st.session_state.dados_controle.keys():
+                    # Se achar o ID (ex: EPA5) no texto (ex: XPTEPA5)
                     if rota_id in texto:
+                        # Varre as posições anteriores para achar a ilha
                         for busca in range(1, 3):
                             if i - busca >= 0:
                                 val_ant = texto_lista[i-busca]
-                                if re.match(r'^[^\w]?([A-Z])$', val_ant) or (len(val_ant) <= 2 and any(c.isalpha() for c in val_ant)):
+                                # Aceita letras sozinhas ou com prefixos (Ex: >A, >B, Z)
+                                if len(val_ant) <= 3 and any(c.isalpha() for c in val_ant):
                                     st.session_state.dados_controle[rota_id]["letra"] = val_ant
                                     break
             
+            # 2. Lógica para Placas
             curr_xpt = None
             for texto in texto_lista:
-                txt_limpo = texto.replace(" ", "")
                 for rota in st.session_state.dados_controle.keys():
-                    if rota in txt_limpo: curr_xpt = rota
-                if padrao_placa.match(txt_limpo) and curr_xpt:
-                    if not any(v['placa'] == txt_limpo for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
-                        st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": txt_limpo, "status": "PENDENTE"})
+                    if rota in texto: curr_xpt = rota
+                if padrao_placa.match(texto) and curr_xpt:
+                    if not any(v['placa'] == texto for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
+                        st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
             
             salvar_no_firebase(st.session_state.dados_controle)
             st.rerun()
@@ -167,7 +169,6 @@ for rota in list(st.session_state.dados_controle.keys()):
                                 salvar_no_firebase(st.session_state.dados_controle)
                                 st.rerun()
 
-            # Botão de excluir agora voltará à cor padrão do Streamlit
             if c3.button("❌", key=f"x_{rota}_{idx}"):
                 info['veiculos'].pop(idx)
                 salvar_no_firebase(st.session_state.dados_controle)
