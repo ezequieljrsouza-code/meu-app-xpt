@@ -95,8 +95,6 @@ with col_h2:
                 salvar_no_firebase(st.session_state.dados_controle)
                 st.rerun()
 
-uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
-
 # --- LOGICA DE EXTRAÇÃO UNIFICADA (PLACAS + ILHAS) ---
 uploaded_file = st.file_uploader("Upload do Print (Placas ou Tabela de Ilhas)", type=["jpg", "png", "jpeg"])
 
@@ -217,6 +215,7 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
 
 
