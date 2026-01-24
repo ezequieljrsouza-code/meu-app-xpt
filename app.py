@@ -13,9 +13,10 @@ import pytz
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
 # --- 1. NOTIFICAÇÃO PÓS-SYNC (Lógica Nova) ---
+# Verifica se acabou de ocorrer uma sincronização para exibir o aviso
 if st.session_state.get('sync_ok'):
     st.toast("Sincronizado com a nuvem com sucesso! ☁️✅", icon="🔄")
-    st.session_state['sync_ok'] = False
+    st.session_state['sync_ok'] = False  # Reseta o aviso para não aparecer de novo sem motivo
 
 # --- 2. DATA AUTOMÁTICA (Brasília) ---
 fuso_br = pytz.timezone('America/Sao_Paulo')
@@ -34,7 +35,7 @@ def salvar_no_firebase():
     db.collection("expedicao").document("config").set(st.session_state.dados_controle)
 
 def carregar_do_firebase():
-    # Sem cache para garantir dados frescos
+    # Sem cache para garantir que sempre pega o dado mais recente
     doc = db.collection("expedicao").document("config").get()
     return doc.to_dict() if doc.exists else None
 
@@ -63,19 +64,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. TÍTULO E AUTOR (Topo Direito) ---
-c_titulo, c_autor = st.columns([3, 1])
-
-with c_titulo:
-    st.title("📦 Controle de Carregamento XPT SPA1 - PM")
-
-with c_autor:
-    # Ajuste de margem para alinhar visualmente com o título
-    st.markdown("""
-        <div style="text-align: right; margin-top: 20px; font-size: 1.1em;">
-            Autor: <strong>Ezequiel Miranda</strong>
-        </div>
-    """, unsafe_allow_html=True)
+# --- 6. TÍTULOS ---
+st.title("📦 Controle de Carregamento XPT SPA1 - PM")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -102,11 +93,13 @@ if 'dados_controle' not in st.session_state:
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
+        # Limpa cache de dados se houver (precaução) e puxa do banco
         st.cache_data.clear()
         dados_novos = carregar_do_firebase()
+        
         if dados_novos:
             st.session_state.dados_controle = dados_novos
-            st.session_state['sync_ok'] = True
+            st.session_state['sync_ok'] = True # Ativa o gatilho da notificação
             st.rerun()
 
 with col_clear:
@@ -160,6 +153,7 @@ for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
         
+        # Edição rápida com Callback
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
