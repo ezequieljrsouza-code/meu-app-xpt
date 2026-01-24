@@ -171,7 +171,7 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"]
+            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
             novo_s = c2.selectbox("Status", status_opcoes, 
                                   index=status_opcoes.index(v['status']), 
                                   key=f"s_{rota}_{idx}")
@@ -207,7 +207,7 @@ for rota, info in st.session_state.dados_controle.items():
             status_emoji = "🟡"
             if "FINALIZADO" in v['status']: status_emoji = "✅"
             elif "CANCELADO" in v['status']: status_emoji = "❌"
-            elif "AGUARDANDO CHEGAR" in v['status']: status_emoji = "⌚"
+            elif "AGUARDANDO CARREGAMENTO" in v['status']: status_emoji = "⌚"
             elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
             
             res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
@@ -231,3 +231,4 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
