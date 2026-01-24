@@ -189,7 +189,6 @@ for rota, info in st.session_state.dados_controle.items():
         tem_placa = True
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
-            # Lógica de emojis corrigida
             status_emoji = "🟡"
             if "FINALIZADO" in v['status']: status_emoji = "✅"
             elif "CANCELADO" in v['status']: status_emoji = "❌"
@@ -201,17 +200,21 @@ for rota, info in st.session_state.dados_controle.items():
 
 if tem_placa:
     st.divider()
-    st.text_area("Texto para Copiar", res_texto, height=150)
+    # CAMPO AUMENTADO PARA 400 PIXELS
+    st.text_area("Texto para Copiar", res_texto, height=400)
     
-    # Botão com notificação de sucesso
+    # Botão com função de cópia e alerta
     js_code = f"""
     <script>
     function copiarTexto() {{
-        navigator.clipboard.writeText(`{res_texto}`).then(() => {{
+        const textToCopy = `{res_texto}`;
+        navigator.clipboard.writeText(textToCopy).then(() => {{
             alert("Texto copiado para o WhatsApp com sucesso! ✅");
+        }}).catch(err => {{
+            console.error('Erro ao copiar: ', err);
         }});
     }}
     </script>
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR WHATSAPP</button>
     """
-    components.html(js_code, height=60)
+    components.html(js_code, height=70)
