@@ -96,7 +96,7 @@ with col_h2:
                 st.rerun()
 
 # --- LOGICA DE EXTRAÇÃO UNIFICADA (PLACAS + ILHAS) ---
-uploaded_file = st.file_uploader("Upload do Print (Placas ou Tabela de Ilhas)", type=["jpg", "png", "jpeg"])
+uploaded_file = st.file_uploader("Upload do Print (Placas e Tabela de Ilhas)", type=["jpg", "png", "jpeg"])
 
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -215,6 +215,7 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
 
 
