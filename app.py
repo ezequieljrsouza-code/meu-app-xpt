@@ -15,11 +15,10 @@ st.set_page_config(page_title="Expedição SPA1", layout="wide")
 # --- NOME NO TOPO ---
 st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
 
-# --- 1. NOTIFICAÇÃO PÓS-SYNC (Lógica Nova) ---
-# Verifica se acabou de ocorrer uma sincronização para exibir o aviso
+# --- 1. NOTIFICAÇÃO PÓS-SYNC ---
 if st.session_state.get('sync_ok'):
     st.toast("Sincronizado com a nuvem com sucesso! ☁️✅", icon="🔄")
-    st.session_state['sync_ok'] = False  # Reseta o aviso para não aparecer de novo sem motivo
+    st.session_state['sync_ok'] = False
 
 # --- 2. DATA AUTOMÁTICA (Brasília) ---
 fuso_br = pytz.timezone('America/Sao_Paulo')
@@ -38,7 +37,6 @@ def salvar_no_firebase():
     db.collection("expedicao").document("config").set(st.session_state.dados_controle)
 
 def carregar_do_firebase():
-    # Sem cache para garantir que sempre pega o dado mais recente
     doc = db.collection("expedicao").document("config").get()
     return doc.to_dict() if doc.exists else None
 
@@ -67,9 +65,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. TÍTULOS ---
+# --- 6. TÍTULO PRINCIPAL ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
-st.write(f"Autor: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -77,17 +74,19 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 7. INICIALIZAÇÃO DE DADOS ---
+# --- 7. INICIALIZAÇÃO DE DADOS (ORDEM AJUSTADA) ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
-        st.session_state.dados_controle = dados_nuvem
+        # Garante a ordem mesmo vindo da nuvem
+        ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
+        st.session_state.dados_controle = {rota: dados_nuvem[rota] for rota in ordem_desejada if rota in dados_nuvem}
     else:
         st.session_state.dados_controle = {
             "EPA4": {"local": "Marabá", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
             "EPA5": {"local": "Goianésia", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
-            "EPA7": {"local": "Canaã", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
             "ETO4": {"local": "Parauapebas", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
+            "EPA7": {"local": "Canaã", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
             "EPA3": {"local": "Paragominas", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
             "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
@@ -96,13 +95,12 @@ if 'dados_controle' not in st.session_state:
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
-        # Limpa cache de dados se houver (precaução) e puxa do banco
         st.cache_data.clear()
         dados_novos = carregar_do_firebase()
-        
         if dados_novos:
-            st.session_state.dados_controle = dados_novos
-            st.session_state['sync_ok'] = True # Ativa o gatilho da notificação
+            ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
+            st.session_state.dados_controle = {rota: dados_novos[rota] for rota in ordem_desejada if rota in dados_novos}
+            st.session_state['sync_ok'] = True
             st.rerun()
 
 with col_clear:
@@ -156,7 +154,6 @@ for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
         
-        # Edição rápida com Callback
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
@@ -233,4 +230,3 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
