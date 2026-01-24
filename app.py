@@ -46,7 +46,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown(f'<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
+# --- 4. TÍTULOS RESTAURADOS ---
+st.title("📦 Controle de Carregamento XPT SPA1 - PM")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -54,7 +56,7 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 4. INICIALIZAÇÃO DE DADOS ---
+# --- 5. INICIALIZAÇÃO DE DADOS ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
@@ -69,7 +71,7 @@ if 'dados_controle' not in st.session_state:
             "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
 
-# --- 5. BOTÕES DE AÇÃO ---
+# --- 6. BOTÕES DE AÇÃO ---
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
@@ -85,14 +87,14 @@ with col_clear:
         salvar_no_firebase()
         st.rerun()
 
-# --- 6. CABEÇALHO ---
+# --- 7. CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 7. EXTRAÇÃO (Status PENDENTE restaurado) ---
+# --- 8. EXTRAÇÃO ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -119,18 +121,16 @@ if uploaded_file:
                     if rota in txt_limpo: curr_xpt = rota
                 if padrao_placa.match(txt_limpo) and curr_xpt:
                     if not any(v['placa'] == txt_limpo for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
-                        # Restaurado para PENDENTE por padrão
                         st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": txt_limpo, "status": "PENDENTE"})
             
             salvar_no_firebase()
             st.rerun()
 
-# --- 8. EDIÇÃO INSTANTÂNEA ---
+# --- 9. EDIÇÃO INSTANTÂNEA ---
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
         
-        # Edição de Ilha com salvamento imediato
         nova_ilha = c_l.text_input("Ilha", info['letra'], key=f"l_{rota}")
         if nova_ilha != info['letra']:
             st.session_state.dados_controle[rota]['letra'] = nova_ilha
@@ -151,7 +151,6 @@ for rota, info in st.session_state.dados_controle.items():
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
             
-            # Atualização de placa e status também salvam na hora
             nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
             if nova_p != v['placa']:
                 v['placa'] = nova_p
@@ -180,7 +179,7 @@ for rota, info in st.session_state.dados_controle.items():
                 salvar_no_firebase()
                 st.rerun()
 
-# --- 9. WHATSAPP ---
+# --- 10. WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_dados = False
 for rota, info in st.session_state.dados_controle.items():
