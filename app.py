@@ -171,7 +171,7 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
+            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"]
             novo_s = c2.selectbox("Status", status_opcoes, 
                                   index=status_opcoes.index(v['status']), 
                                   key=f"s_{rota}_{idx}")
