@@ -46,7 +46,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. TÍTULOS RESTAURADOS ---
+# --- 4. TÍTULOS ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
 st.write(f"Autor: **Ezequiel Miranda**")
 
@@ -156,8 +156,9 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            novo_s = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"], 
-                                  index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"].index(v['status']), 
+            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"]
+            novo_s = c2.selectbox("Status", status_opcoes, 
+                                  index=status_opcoes.index(v['status']), 
                                   key=f"s_{rota}_{idx}")
             if novo_s != v['status']:
                 v['status'] = novo_s
@@ -180,25 +181,37 @@ for rota, info in st.session_state.dados_controle.items():
                 st.rerun()
 
 # --- 10. WHATSAPP ---
-# --- GERAÇÃO DO TEXTO ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
     if v_validos:
         tem_placa = True
-        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n\n"
+        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
-            # Seleção do emoji de status para o final da placa
-            status_emoji = "✅" if "FINALIZADO" in v['status'] else "❌" if "CANCELADO" in v['status'] else "⌚" if "AGUARDANDO CHEGAR" in v['status']  else "⏳" if "CARREGAMENTO" in v['status'] else "🟡"
+            # Lógica de emojis corrigida
+            status_emoji = "🟡"
+            if "FINALIZADO" in v['status']: status_emoji = "✅"
+            elif "CANCELADO" in v['status']: status_emoji = "❌"
+            elif "AGUARDANDO CHEGAR" in v['status']: status_emoji = "⌚"
+            elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
             
-            # Formatação solicitada: Caminhão na frente + Placa + Status + Emoji de Status
             res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
         res_texto += "\n"
 
-if tem_dados:
+if tem_placa:
     st.divider()
     st.text_area("Texto para Copiar", res_texto, height=150)
-    components.html(f'<button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="navigator.clipboard.writeText(`{res_texto}`)">COPIAR WHATSAPP</button>', height=50)
-
-
+    
+    # Botão com notificação de sucesso
+    js_code = f"""
+    <script>
+    function copiarTexto() {{
+        navigator.clipboard.writeText(`{res_texto}`).then(() => {{
+            alert("Texto copiado para o WhatsApp com sucesso! ✅");
+        }});
+    }}
+    </script>
+    <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR WHATSAPP</button>
+    """
+    components.html(js_code, height=60)
