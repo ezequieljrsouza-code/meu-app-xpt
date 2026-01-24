@@ -201,7 +201,7 @@ for rota, info in st.session_state.dados_controle.items():
 if tem_placa:
     st.divider()
     # CAMPO AUMENTADO PARA 400 PIXELS
-    st.text_area("Texto para Copiar", res_texto, height=500)
+    st.text_area("Texto para Copiar", res_texto, height=800)
     
     # Botão com função de cópia e alerta
     js_code = f"""
@@ -218,5 +218,6 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
 
 
