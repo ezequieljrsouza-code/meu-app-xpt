@@ -97,25 +97,51 @@ with col_h2:
 
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 
+# --- LOGICA DE EXTRAÇÃO UNIFICADA (PLACAS + ILHAS) ---
+uploaded_file = st.file_uploader("Upload do Print (Placas ou Tabela de Ilhas)", type=["jpg", "png", "jpeg"])
+
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR E SINCRONIZAR"):
-        with st.spinner("Lendo e salvando na nuvem..."):
-            resultados = reader.readtext(np.array(img))
-            padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
-            for r in st.session_state.dados_controle:
-                st.session_state.dados_controle[r]["veiculos"] = []
+        with st.spinner("Analisando imagem..."):
+            img_np = np.array(img)
+            resultados = reader.readtext(img_np)
             
+            padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
+            
+            # 1. MAPEAMENTO DE LETRAS (ILHAS)
+            # Varre a imagem buscando a relação Ilha -> XPT (Ex: >A -> XPT - EPA5)
+            for i, res in enumerate(resultados):
+                texto = res[1].upper().strip().replace(" ", "")
+                
+                for rota_id in st.session_state.dados_controle.keys():
+                    if rota_id in texto:
+                        # Tenta pegar o texto da caixa anterior (onde costuma estar a Ilha)
+                        if i > 0:
+                            caixa_anterior = resultados[i-1][1].upper().strip().replace(">", "")
+                            # Se for uma letra única (A, B, W, X, Y, Z), salva como a Ilha daquela rota
+                            if len(caixa_anterior) == 1 and caixa_anterior.isalpha():
+                                st.session_state.dados_controle[rota_id]["letra"] = caixa_anterior
+
+            # 2. EXTRAÇÃO DE PLACAS
             current_xpt = None
             for res in resultados:
                 texto = res[1].upper().strip().replace(" ", "")
+                
+                # Identifica em qual rota o OCR está passando no momento
                 for rota in st.session_state.dados_controle.keys():
-                    if rota in texto: current_xpt = rota
+                    if rota in texto: 
+                        current_xpt = rota
+                
+                # Se detectar uma placa, adiciona à lista da rota atual
                 if padrao_placa.match(texto) and current_xpt:
+                    # Evita duplicados
                     if not any(v['placa'] == texto for v in st.session_state.dados_controle[current_xpt]["veiculos"]):
                         st.session_state.dados_controle[current_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
             
+            # 3. SALVAR E SINCRONIZAR
             salvar_no_firebase(st.session_state.dados_controle)
+            st.success("Dados extraídos e sincronizados com sucesso!")
         st.rerun()
 
 # --- ÁREA DE EDIÇÃO ---
@@ -191,5 +217,6 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
 
