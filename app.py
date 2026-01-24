@@ -25,14 +25,12 @@ def get_db():
 
 db = get_db()
 
-def salvar_no_firebase(dados):
-    db.collection("expedicao").document("config").set(dados)
+def salvar_no_firebase():
+    db.collection("expedicao").document("config").set(st.session_state.dados_controle)
 
 def carregar_do_firebase():
     doc = db.collection("expedicao").document("config").get()
-    if doc.exists:
-        return doc.to_dict()
-    return None
+    return doc.to_dict() if doc.exists else None
 
 # --- 3. ESTILIZAÇÃO CSS ---
 st.markdown("""
@@ -40,18 +38,15 @@ st.markdown("""
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"] {
-        background-color: #ff4b4b !important;
-        color: white !important;
-        border: none !important;
+        background-color: #ff4b4b !important; color: white !important; border: none !important;
     }
     div.stButton > button:first-child[kind="primary"] {
-        background-color: #007bff;
-        border: none;
+        background-color: #007bff !important; border: none;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
 
 @st.cache_resource
 def load_ocr():
@@ -59,13 +54,25 @@ def load_ocr():
 
 reader = load_ocr()
 
-st.title("📦 Controle de Carregamento XPT SPA1")
-st.write(f"Autor: **Ezequiel Miranda**")
+# --- 4. INICIALIZAÇÃO DE DADOS ---
+if 'dados_controle' not in st.session_state:
+    dados_nuvem = carregar_do_firebase()
+    if dados_nuvem:
+        st.session_state.dados_controle = dados_nuvem
+    else:
+        st.session_state.dados_controle = {
+            "EPA4": {"local": "Marabá", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
+            "EPA5": {"local": "Goianésia", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
+            "EPA7": {"local": "Canaã", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
+            "ETO4": {"local": "Parauapebas", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
+            "EPA3": {"local": "Paragominas", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
+            "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
+        }
 
-# --- 4. BOTÕES SUPERIORES ---
+# --- 5. BOTÕES DE AÇÃO ---
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
-    if st.button("🔄 Sincronizar Agora", use_container_width=True, type="primary"):
+    if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
         dados_novos = carregar_do_firebase()
         if dados_novos:
             st.session_state.dados_controle = dados_novos
@@ -75,57 +82,36 @@ with col_clear:
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
-        salvar_no_firebase(st.session_state.dados_controle)
+        salvar_no_firebase()
         st.rerun()
-
-# --- 5. INICIALIZAÇÃO ---
-if 'dados_controle' not in st.session_state:
-    dados_nuvem = carregar_do_firebase()
-    if dados_nuvem:
-        st.session_state.dados_controle = dados_nuvem
-    else:
-        st.session_state.dados_controle = {
-            "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "?", "veiculos": []},
-            "EPA5": {"local": "Goianésia", "janela": "14:00 às 15:00", "letra": "?", "veiculos": []},
-            "ETO4": {"local": "Parauapebas", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
-            "EPA7": {"local": "Canaã", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
-            "EPA3": {"local": "Paragominas", "janela": "15:30 às 17:30", "letra": "?", "veiculos": []},
-            "EPA8": {"local": "Mãe do Rio", "janela": "15:30 às 17:30", "letra": "?", "veiculos": []},
-        }
 
 # --- 6. CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
+with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 7. EXTRAÇÃO REVISADA (Filtro Anti-XPT) ---
+# --- 7. EXTRAÇÃO (Status PENDENTE restaurado) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
-    if st.button("🔍 EXTRAIR E SINCRONIZAR"):
-        with st.spinner("Lendo tabela de ilhas..."):
+    if st.button("🔍 EXTRAIR DADOS"):
+        with st.spinner("Extraindo..."):
             resultados = reader.readtext(np.array(img))
-            
-            # Lista bruta para manter a ordem original da leitura
             bruto = [res[1].upper().strip() for res in resultados]
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
             for i, texto in enumerate(bruto):
-                # Procura pelas rotas (EPA5, EPA7, etc)
                 for rota_id in st.session_state.dados_controle.keys():
                     if rota_id in texto:
-                        # Se achou a rota, vamos olhar para trás para achar a letra correta
-                        # Vamos ignorar qualquer texto que seja "XPT", "-" ou o próprio ID
-                        for busca in range(1, 5):
+                        for busca in range(1, 4):
                             if i - busca >= 0:
-                                candidato = bruto[i-busca].replace(" ", "")
-                                # A ilha é curta (1-2 caracteres) e não é a palavra "XPT" nem "-"
-                                if 1 <= len(candidato) <= 2 and "XPT" not in candidato and candidato not in ["-", "|"]:
-                                    st.session_state.dados_controle[rota_id]["letra"] = candidato
+                                cand = bruto[i-busca].replace(" ", "")
+                                if 1 <= len(cand) <= 3 and "XPT" not in cand:
+                                    st.session_state.dados_controle[rota_id]["letra"] = cand
                                     break
             
-            # Lógica de Placas (permanece igual)
             curr_xpt = None
             for texto in bruto:
                 txt_limpo = texto.replace(" ", "")
@@ -133,43 +119,65 @@ if uploaded_file:
                     if rota in txt_limpo: curr_xpt = rota
                 if padrao_placa.match(txt_limpo) and curr_xpt:
                     if not any(v['placa'] == txt_limpo for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
+                        # Restaurado para PENDENTE por padrão
                         st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": txt_limpo, "status": "PENDENTE"})
             
-            salvar_no_firebase(st.session_state.dados_controle)
+            salvar_no_firebase()
             st.rerun()
 
-# --- 8. EDIÇÃO ---
-for rota in list(st.session_state.dados_controle.keys()):
-    info = st.session_state.dados_controle[rota]
-    with st.expander(f"📍 {rota} - {info['local']} (Ilha: {info['letra']})", expanded=True):
+# --- 8. EDIÇÃO INSTANTÂNEA ---
+for rota, info in st.session_state.dados_controle.items():
+    with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
-        info['letra'] = c_l.text_input("Ilha", info['letra'], key=f"l_{rota}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,))
-        info['janela'] = c_h.text_input("Hora", info['janela'], key=f"h_{rota}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,))
+        
+        # Edição de Ilha com salvamento imediato
+        nova_ilha = c_l.text_input("Ilha", info['letra'], key=f"l_{rota}")
+        if nova_ilha != info['letra']:
+            st.session_state.dados_controle[rota]['letra'] = nova_ilha
+            salvar_no_firebase()
+            st.rerun()
+
+        nova_hora = c_h.text_input("Hora", info['janela'], key=f"h_{rota}")
+        if nova_hora != info['janela']:
+            st.session_state.dados_controle[rota]['janela'] = nova_hora
+            salvar_no_firebase()
+            st.rerun()
         
         if c_a.button("➕ Placa", key=f"add_{rota}"):
-            info['veiculos'].append({"placa": "", "status": "PENDENTE"})
-            salvar_no_firebase(st.session_state.dados_controle)
+            st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
+            salvar_no_firebase()
             st.rerun()
 
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
-            v['placa'] = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
-            v['status'] = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO"], index=0, key=f"s_{rota}_{idx}")
+            
+            # Atualização de placa e status também salvam na hora
+            nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
+            if nova_p != v['placa']:
+                v['placa'] = nova_p
+                salvar_no_firebase()
+
+            novo_s = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "CARREGANDO", "CANCELADO"], 
+                                  index=["PENDENTE", "FINALIZADO", "CARREGANDO", "CANCELADO"].index(v['status']), 
+                                  key=f"s_{rota}_{idx}")
+            if novo_s != v['status']:
+                v['status'] = novo_s
+                salvar_no_firebase()
             
             with c_move:
                 st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
                 with st.popover("🔄"):
-                    for destino in st.session_state.dados_controle.keys():
-                        if destino != rota:
-                            if st.button(destino, key=f"mv_{rota}_{destino}_{idx}"):
-                                st.session_state.dados_controle[destino]["veiculos"].append(v.copy())
+                    for dest in st.session_state.dados_controle.keys():
+                        if dest != rota:
+                            if st.button(dest, key=f"mv_{rota}_{dest}_{idx}"):
+                                st.session_state.dados_controle[dest]["veiculos"].append(v.copy())
                                 info['veiculos'].pop(idx)
-                                salvar_no_firebase(st.session_state.dados_controle)
+                                salvar_no_firebase()
                                 st.rerun()
 
             if c3.button("❌", key=f"x_{rota}_{idx}"):
                 info['veiculos'].pop(idx)
-                salvar_no_firebase(st.session_state.dados_controle)
+                salvar_no_firebase()
                 st.rerun()
 
 # --- 9. WHATSAPP ---
@@ -185,5 +193,5 @@ for rota, info in st.session_state.dados_controle.items():
 
 if tem_dados:
     st.divider()
-    st.text_area("Copiável", res_texto, height=200)
+    st.text_area("Texto para Copiar", res_texto, height=150)
     components.html(f'<button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="navigator.clipboard.writeText(`{res_texto}`)">COPIAR WHATSAPP</button>', height=50)
