@@ -67,7 +67,6 @@ st.markdown("""
 
 # --- 6. TÍTULO PRINCIPAL ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
-st.write(f"Autor: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -75,13 +74,14 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 7. INICIALIZAÇÃO DE DADOS (ORDEM AJUSTADA) ---
+# --- 7. INICIALIZAÇÃO DE DADOS ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
-        # Garante a ordem mesmo vindo da nuvem
         ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
-        st.session_state.dados_controle = {rota: dados_nuvem[rota] for rota in ordem_desejada if rota in dados_nuvem}
+        # Mantém ordem padrão e adiciona as extras que existirem na nuvem
+        extras = [r for r in dados_nuvem.keys() if r not in ordem_desejada]
+        st.session_state.dados_controle = {rota: dados_nuvem[rota] for rota in (ordem_desejada + extras) if rota in dados_nuvem}
     else:
         st.session_state.dados_controle = {
             "EPA4": {"local": "Marabá", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
@@ -93,14 +93,13 @@ if 'dados_controle' not in st.session_state:
         }
 
 # --- 8. BOTÕES DE AÇÃO ---
-col_sync, col_clear = st.columns([1, 1])
+col_sync, col_clear, col_add = st.columns([1, 1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
         st.cache_data.clear()
         dados_novos = carregar_do_firebase()
         if dados_novos:
-            ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
-            st.session_state.dados_controle = {rota: dados_novos[rota] for rota in ordem_desejada if rota in dados_novos}
+            st.session_state.dados_controle = dados_novos
             st.session_state['sync_ok'] = True
             st.rerun()
 
@@ -110,6 +109,16 @@ with col_clear:
             st.session_state.dados_controle[rota]["veiculos"] = []
         salvar_no_firebase()
         st.rerun()
+
+with col_add:
+    with st.popover("➕ Nova Rota", use_container_width=True):
+        nova_id = st.text_input("ID da Rota (ex: EPA9)").upper()
+        nova_cid = st.text_input("Cidade")
+        if st.button("Confirmar Adição"):
+            if nova_id and nova_cid:
+                st.session_state.dados_controle[nova_id] = {"local": nova_cid, "janela": "00:00 às 00:00", "letra": "?", "veiculos": []}
+                salvar_no_firebase()
+                st.rerun()
 
 # --- 9. CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
@@ -171,9 +180,9 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"]
+            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
             novo_s = c2.selectbox("Status", status_opcoes, 
-                                  index=status_opcoes.index(v['status']), 
+                                  index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, 
                                   key=f"s_{rota}_{idx}")
             if novo_s != v['status']:
                 v['status'] = novo_s
@@ -207,7 +216,7 @@ for rota, info in st.session_state.dados_controle.items():
             status_emoji = "🟡"
             if "FINALIZADO" in v['status']: status_emoji = "✅"
             elif "CANCELADO" in v['status']: status_emoji = "❌"
-            elif "AGUARDANDO CHEGAR" in v['status']: status_emoji = "⌚"
+            elif "AGUARDANDO CARREGAMENTO" in v['status']: status_emoji = "⌚"
             elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
             
             res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
