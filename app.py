@@ -13,8 +13,6 @@ st.set_page_config(page_title="Expedição SPA1", layout="wide")
 # --- CONEXÃO COM FIREBASE (FIRESTORE) ---
 @st.cache_resource
 def get_db():
-    # No Streamlit Cloud, você colocará o JSON da chave em Settings > Secrets
-    # Com o nome: firestore_key
     key_dict = json.loads(st.secrets["firestore_key"])
     creds = service_account.Credentials.from_service_account_info(key_dict)
     return firestore.Client(credentials=creds, project=key_dict['project_id'])
@@ -23,7 +21,6 @@ db = get_db()
 
 # --- FUNÇÕES DE BANCO DE DADOS ---
 def salvar_no_firebase(dados):
-    # Salva o dicionário inteiro em um documento chamado 'config' na coleção 'expedicao'
     db.collection("expedicao").document("config").set(dados)
 
 def carregar_do_firebase():
@@ -32,13 +29,30 @@ def carregar_do_firebase():
         return doc.to_dict()
     return None
 
-# --- ESCONDER MENU E LINKS DO GITHUB ---
+# --- ESTILIZAÇÃO CSS PERSONALIZADA ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display:none;}
+    
+    /* Estiliza o botão secundário para ficar vermelho (Limpar Tudo) */
+    div.stButton > button:first-child[kind="secondary"] {
+        background-color: #ff4b4b;
+        color: white;
+        border: none;
+    }
+    div.stButton > button:first-child[kind="secondary"]:hover {
+        background-color: #ff3333;
+        color: white;
+        border: none;
+    }
+    /* Estiliza o botão primário para azul (Sincronizar) */
+    div.stButton > button:first-child[kind="primary"] {
+        background-color: #007bff;
+        border: none;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -50,17 +64,28 @@ def load_ocr():
 
 reader = load_ocr()
 
+# --- TÍTULO E BOTÕES DE CONTROLE SUPERIORES ---
 st.title("📦 Controle de Carregamento XPT SPA1 (Sincronizado)")
 st.write(f"Autor: **Ezequiel Miranda**")
 
-# --- BOTÃO DE SINCRONIZAÇÃO MANUAL ---
-# Colocamos no topo para fácil acesso no celular
-if st.button("🔄 Sincronizar Agora"):
-    with st.spinner("Buscando dados na nuvem..."):
-        dados_novos = carregar_do_firebase()
-        if dados_novos:
-            st.session_state.dados_controle = dados_novos
-            st.rerun()
+col_sync, col_clear = st.columns([1, 1])
+
+with col_sync:
+    if st.button("🔄 Sincronizar Agora", use_container_width=True, type="primary"):
+        with st.spinner("Buscando dados na nuvem..."):
+            dados_novos = carregar_do_firebase()
+            if dados_novos:
+                st.session_state.dados_controle = dados_novos
+                st.rerun()
+
+with col_clear:
+    if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
+        for rota in st.session_state.dados_controle:
+            st.session_state.dados_controle[rota]["veiculos"] = []
+            # Opcional: st.session_state.dados_controle[rota]["letra"] = "?"
+        salvar_no_firebase(st.session_state.dados_controle)
+        st.success("Tudo limpo e sincronizado!")
+        st.rerun()
 
 # --- INICIALIZAÇÃO / CARREGAMENTO ---
 if 'dados_controle' not in st.session_state:
@@ -68,7 +93,6 @@ if 'dados_controle' not in st.session_state:
     if dados_nuvem:
         st.session_state.dados_controle = dados_nuvem
     else:
-        # Suas rotas padrão caso o banco esteja vazio
         st.session_state.dados_controle = {
             "EPA4": {"local": "Marabá", "janela": "13:00 às 14:00", "letra": "V", "veiculos": []},
             "EPA5": {"local": "Goianésia", "janela": "14:00 às 15:00", "letra": "X", "veiculos": []},
@@ -78,7 +102,7 @@ if 'dados_controle' not in st.session_state:
             "EPA8": {"local": "Mãe do Rio", "janela": "15:30 às 17:30", "letra": "W", "veiculos": []},
         }
 
-# --- CABEÇALHO ---
+# --- CABEÇALHO DE INFORMAÇÕES ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
@@ -104,20 +128,15 @@ if uploaded_file:
         with st.spinner("Analisando imagem..."):
             img_np = np.array(img)
             resultados = reader.readtext(img_np)
-            
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
             # 1. MAPEAMENTO DE LETRAS (ILHAS)
-            # Varre a imagem buscando a relação Ilha -> XPT (Ex: >A -> XPT - EPA5)
             for i, res in enumerate(resultados):
                 texto = res[1].upper().strip().replace(" ", "")
-                
                 for rota_id in st.session_state.dados_controle.keys():
                     if rota_id in texto:
-                        # Tenta pegar o texto da caixa anterior (onde costuma estar a Ilha)
                         if i > 0:
                             caixa_anterior = resultados[i-1][1].upper().strip().replace(">", "")
-                            # Se for uma letra única (A, B, W, X, Y, Z), salva como a Ilha daquela rota
                             if len(caixa_anterior) == 1 and caixa_anterior.isalpha():
                                 st.session_state.dados_controle[rota_id]["letra"] = caixa_anterior
 
@@ -125,30 +144,24 @@ if uploaded_file:
             current_xpt = None
             for res in resultados:
                 texto = res[1].upper().strip().replace(" ", "")
-                
-                # Identifica em qual rota o OCR está passando no momento
                 for rota in st.session_state.dados_controle.keys():
                     if rota in texto: 
                         current_xpt = rota
                 
-                # Se detectar uma placa, adiciona à lista da rota atual
                 if padrao_placa.match(texto) and current_xpt:
-                    # Evita duplicados
                     if not any(v['placa'] == texto for v in st.session_state.dados_controle[current_xpt]["veiculos"]):
                         st.session_state.dados_controle[current_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
             
-            # 3. SALVAR E SINCRONIZAR
             salvar_no_firebase(st.session_state.dados_controle)
             st.success("Dados extraídos e sincronizados com sucesso!")
         st.rerun()
 
-# --- ÁREA DE EDIÇÃO ---
+# --- ÁREA DE EDIÇÃO DE ROTAS ---
 for rota in list(st.session_state.dados_controle.keys()):
     info = st.session_state.dados_controle[rota]
     with st.expander(f"📍 {rota} - {info['local']}", expanded=True):
         cl, ch, ca, cr = st.columns([1, 2, 1, 0.5])
         
-        # Atualiza banco ao mudar letra ou hora
         info['letra'] = cl.text_input(f"Letra", value=info['letra'], key=f"l_{rota}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,))
         info['janela'] = ch.text_input(f"Hora", value=info['janela'], key=f"h_{rota}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,))
         
@@ -164,10 +177,7 @@ for rota in list(st.session_state.dados_controle.keys()):
         
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
-            
             v['placa'] = c1.text_input("Placa", value=v['placa'], key=f"p_{rota}_{idx}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,)).upper()
-            
-            # Selectbox que salva automaticamente ao mudar
             v['status'] = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"], 
                                       index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"].index(v['status']),
                                       key=f"s_{rota}_{idx}", on_change=salvar_no_firebase, args=(st.session_state.dados_controle,))
@@ -190,7 +200,7 @@ for rota in list(st.session_state.dados_controle.keys()):
                     salvar_no_firebase(st.session_state.dados_controle)
                     st.rerun()
 
-# --- GERAÇÃO DO TEXTO ---
+# --- GERAÇÃO DO TEXTO PARA WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
@@ -207,7 +217,6 @@ st.divider()
 if tem_placa:
     st.subheader("📋 Resultado Final")
     st.text_area("Copiável:", value=res_texto, height=300)
-    
     copy_code = f"""
     <button style="width: 100%; background-color: #25D366; color: white; border: none; padding: 15px; font-size: 16px; border-radius: 10px; cursor: pointer; font-weight: bold;" 
     onclick="navigator.clipboard.writeText(`{res_texto}`)">
@@ -215,8 +224,3 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
-
-
-
-
-
