@@ -53,6 +53,15 @@ reader = load_ocr()
 st.title("📦 Controle de Carregamento XPT SPA1 (Sincronizado)")
 st.write(f"Autor: **Ezequiel Miranda**")
 
+# --- BOTÃO DE SINCRONIZAÇÃO MANUAL ---
+# Colocamos no topo para fácil acesso no celular
+if st.button("🔄 Sincronizar Agora"):
+    with st.spinner("Buscando dados na nuvem..."):
+        dados_novos = carregar_do_firebase()
+        if dados_novos:
+            st.session_state.dados_controle = dados_novos
+            st.rerun()
+
 # --- INICIALIZAÇÃO / CARREGAMENTO ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
@@ -182,4 +191,5 @@ if tem_placa:
     </button>
     """
     components.html(copy_code, height=70)
+
 
