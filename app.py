@@ -75,14 +75,26 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 7. INICIALIZAÇÃO DE DADOS ---
+# --- 7. INICIALIZAÇÃO DE DADOS (ORDEM FIXA GARANTIDA) ---
+def organizar_dados(dados_brutos):
+    ordem_fixa = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
+    dados_ordenados = {}
+    # Primeiro insere a ordem fixa se existir nos dados
+    for rota in ordem_fixa:
+        if rota in dados_brutos:
+            dados_ordenados[rota] = dados_brutos[rota]
+    # Depois insere o que sobrou (rotas novas)
+    for rota in dados_brutos:
+        if rota not in dados_ordenados:
+            dados_ordenados[rota] = dados_brutos[rota]
+    return dados_ordenados
+
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
-        ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
-        extras = [r for r in dados_nuvem.keys() if r not in ordem_desejada]
-        st.session_state.dados_controle = {rota: dados_nuvem[rota] for rota in (ordem_desejada + extras) if rota in dados_nuvem}
+        st.session_state.dados_controle = organizar_dados(dados_nuvem)
     else:
+        # Padrão inicial caso não haja nada na nuvem
         st.session_state.dados_controle = {
             "EPA4": {"local": "Marabá", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
             "EPA5": {"local": "Goianésia", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
@@ -99,7 +111,7 @@ with col_sync:
         st.cache_data.clear()
         dados_novos = carregar_do_firebase()
         if dados_novos:
-            st.session_state.dados_controle = dados_novos
+            st.session_state.dados_controle = organizar_dados(dados_novos)
             st.session_state['sync_ok'] = True
             st.rerun()
 
@@ -173,7 +185,6 @@ for rota, info in st.session_state.dados_controle.items():
             st.rerun()
 
         for idx, v in enumerate(info['veiculos']):
-            # Ajuste de colunas: 2 para Placa, 2 para Status, 0.5 para Mover, 0.5 para Excluir
             c1, c2, c_move, c3 = st.columns([2, 2, 0.5, 0.5])
             
             nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
