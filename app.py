@@ -67,6 +67,7 @@ st.markdown("""
 
 # --- 6. TÍTULO PRINCIPAL ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
+st.write(f"Autor: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -79,7 +80,6 @@ if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
         ordem_desejada = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
-        # Mantém ordem padrão e adiciona as extras que existirem na nuvem
         extras = [r for r in dados_nuvem.keys() if r not in ordem_desejada]
         st.session_state.dados_controle = {rota: dados_nuvem[rota] for rota in (ordem_desejada + extras) if rota in dados_nuvem}
     else:
@@ -173,7 +173,8 @@ for rota, info in st.session_state.dados_controle.items():
             st.rerun()
 
         for idx, v in enumerate(info['veiculos']):
-            c1, c2, c_move, c3 = st.columns([2.5, 2.5, 0.6, 0.5])
+            # Ajuste de colunas: 2 para Placa, 2 para Status, 0.5 para Mover, 0.5 para Excluir
+            c1, c2, c_move, c3 = st.columns([2, 2, 0.5, 0.5])
             
             nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
             if nova_p != v['placa']:
@@ -190,7 +191,7 @@ for rota, info in st.session_state.dados_controle.items():
             
             with c_move:
                 st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-                with st.popover("🔄"):
+                with st.popover("🔄", use_container_width=True):
                     for dest in st.session_state.dados_controle.keys():
                         if dest != rota:
                             if st.button(dest, key=f"mv_{rota}_{dest}_{idx}"):
@@ -199,10 +200,12 @@ for rota, info in st.session_state.dados_controle.items():
                                 salvar_no_firebase()
                                 st.rerun()
 
-            if c3.button("❌", key=f"x_{rota}_{idx}"):
-                info['veiculos'].pop(idx)
-                salvar_no_firebase()
-                st.rerun()
+            with c3:
+                st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
+                if st.button("❌", key=f"x_{rota}_{idx}", use_container_width=True):
+                    info['veiculos'].pop(idx)
+                    salvar_no_firebase()
+                    st.rerun()
 
 # --- 12. WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
