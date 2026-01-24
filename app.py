@@ -39,14 +39,11 @@ st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
-    
-    /* APENAS o botão Limpar Tudo fica vermelho */
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"] {
         background-color: #ff4b4b !important;
         color: white !important;
         border: none !important;
     }
-    
     div.stButton > button:first-child[kind="primary"] {
         background-color: #007bff;
         border: none;
@@ -102,40 +99,41 @@ with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 7. EXTRAÇÃO MELHORADA (Foco na nova imagem) ---
+# --- 7. EXTRAÇÃO REVISADA (Filtro Anti-XPT) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR E SINCRONIZAR"):
-        with st.spinner("Analisando imagem de alta qualidade..."):
+        with st.spinner("Lendo tabela de ilhas..."):
             resultados = reader.readtext(np.array(img))
-            # Texto limpo para busca: remove espaços e hifens extras
-            texto_lista = [res[1].upper().replace(" ", "").replace("-", "") for res in resultados]
             
+            # Lista bruta para manter a ordem original da leitura
+            bruto = [res[1].upper().strip() for res in resultados]
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             
-            for i, texto in enumerate(texto_lista):
-                # 1. Lógica para Ilhas (Ex: >A, >B, W, X...)
+            for i, texto in enumerate(bruto):
+                # Procura pelas rotas (EPA5, EPA7, etc)
                 for rota_id in st.session_state.dados_controle.keys():
-                    # Se achar o ID (ex: EPA5) no texto (ex: XPTEPA5)
                     if rota_id in texto:
-                        # Varre as posições anteriores para achar a ilha
-                        for busca in range(1, 3):
+                        # Se achou a rota, vamos olhar para trás para achar a letra correta
+                        # Vamos ignorar qualquer texto que seja "XPT", "-" ou o próprio ID
+                        for busca in range(1, 5):
                             if i - busca >= 0:
-                                val_ant = texto_lista[i-busca]
-                                # Aceita letras sozinhas ou com prefixos (Ex: >A, >B, Z)
-                                if len(val_ant) <= 3 and any(c.isalpha() for c in val_ant):
-                                    st.session_state.dados_controle[rota_id]["letra"] = val_ant
+                                candidato = bruto[i-busca].replace(" ", "")
+                                # A ilha é curta (1-2 caracteres) e não é a palavra "XPT" nem "-"
+                                if 1 <= len(candidato) <= 2 and "XPT" not in candidato and candidato not in ["-", "|"]:
+                                    st.session_state.dados_controle[rota_id]["letra"] = candidato
                                     break
             
-            # 2. Lógica para Placas
+            # Lógica de Placas (permanece igual)
             curr_xpt = None
-            for texto in texto_lista:
+            for texto in bruto:
+                txt_limpo = texto.replace(" ", "")
                 for rota in st.session_state.dados_controle.keys():
-                    if rota in texto: curr_xpt = rota
-                if padrao_placa.match(texto) and curr_xpt:
-                    if not any(v['placa'] == texto for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
-                        st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": texto, "status": "PENDENTE"})
+                    if rota in txt_limpo: curr_xpt = rota
+                if padrao_placa.match(txt_limpo) and curr_xpt:
+                    if not any(v['placa'] == txt_limpo for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
+                        st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": txt_limpo, "status": "PENDENTE"})
             
             salvar_no_firebase(st.session_state.dados_controle)
             st.rerun()
@@ -164,7 +162,7 @@ for rota in list(st.session_state.dados_controle.keys()):
                     for destino in st.session_state.dados_controle.keys():
                         if destino != rota:
                             if st.button(destino, key=f"mv_{rota}_{destino}_{idx}"):
-                                st.session_state.dados_controle[destino]["veiculos"].append(v)
+                                st.session_state.dados_controle[destino]["veiculos"].append(v.copy())
                                 info['veiculos'].pop(idx)
                                 salvar_no_firebase(st.session_state.dados_controle)
                                 st.rerun()
