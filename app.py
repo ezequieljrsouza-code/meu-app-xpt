@@ -156,8 +156,8 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            novo_s = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "CARREGANDO", "CANCELADO"], 
-                                  index=["PENDENTE", "FINALIZADO", "CARREGANDO", "CANCELADO"].index(v['status']), 
+            novo_s = c2.selectbox("Status", ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"], 
+                                  index=["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CHEGAR"].index(v['status']), 
                                   key=f"s_{rota}_{idx}")
             if novo_s != v['status']:
                 v['status'] = novo_s
@@ -194,3 +194,4 @@ if tem_dados:
     st.divider()
     st.text_area("Texto para Copiar", res_texto, height=150)
     components.html(f'<button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="navigator.clipboard.writeText(`{res_texto}`)">COPIAR WHATSAPP</button>', height=50)
+
