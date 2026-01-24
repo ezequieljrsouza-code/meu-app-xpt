@@ -34,16 +34,26 @@ def carregar_do_firebase():
         return doc.to_dict()
     return None
 
-# --- 3. ESTILIZAÇÃO CSS ---
+# --- 3. ESTILIZAÇÃO CSS ESPECÍFICA ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
-    div.stButton > button:first-child[kind="secondary"] {
-        background-color: #ff4b4b; color: white; border: none;
+    
+    /* APENAS o botão Limpar Tudo (que está na col_clear) fica vermelho */
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"] {
+        background-color: #ff4b4b !important;
+        color: white !important;
+        border: none !important;
     }
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) button[kind="secondary"]:hover {
+        background-color: #ff3333 !important;
+    }
+    
+    /* Garante que o botão Sincronizar seja azul */
     div.stButton > button:first-child[kind="primary"] {
-        background-color: #007bff; border: none;
+        background-color: #007bff;
+        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -57,7 +67,6 @@ def load_ocr():
 reader = load_ocr()
 
 st.title("📦 Controle de Carregamento XPT SPA1")
-st.write(f"Autor: **Ezequiel Miranda**")
 
 # --- 4. BOTÕES SUPERIORES ---
 col_sync, col_clear = st.columns([1, 1])
@@ -69,6 +78,7 @@ with col_sync:
             st.rerun()
 
 with col_clear:
+    # Este botão receberá o estilo vermelho pelo CSS acima
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
@@ -96,7 +106,7 @@ with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 7. EXTRAÇÃO (Placas + Ilhas com caracteres especiais) ---
+# --- 7. EXTRAÇÃO (Placas + Ilhas) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -128,7 +138,7 @@ if uploaded_file:
             salvar_no_firebase(st.session_state.dados_controle)
             st.rerun()
 
-# --- 8. EDIÇÃO COM BOTÃO DE MOVER RESTAURADO ---
+# --- 8. EDIÇÃO ---
 for rota in list(st.session_state.dados_controle.keys()):
     info = st.session_state.dados_controle[rota]
     with st.expander(f"📍 {rota} - {info['local']} (Ilha: {info['letra']})", expanded=True):
@@ -157,6 +167,7 @@ for rota in list(st.session_state.dados_controle.keys()):
                                 salvar_no_firebase(st.session_state.dados_controle)
                                 st.rerun()
 
+            # Botão de excluir agora voltará à cor padrão do Streamlit
             if c3.button("❌", key=f"x_{rota}_{idx}"):
                 info['veiculos'].pop(idx)
                 salvar_no_firebase(st.session_state.dados_controle)
