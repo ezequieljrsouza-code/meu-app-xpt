@@ -12,6 +12,9 @@ import pytz
 
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
+# --- NOME NO TOPO ---
+st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
+
 # --- 1. NOTIFICAÇÃO PÓS-SYNC (Lógica Nova) ---
 # Verifica se acabou de ocorrer uma sincronização para exibir o aviso
 if st.session_state.get('sync_ok'):
@@ -230,3 +233,4 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
