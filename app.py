@@ -12,11 +12,17 @@ import pytz
 
 st.set_page_config(page_title="Expedição SPA1", layout="wide")
 
-# --- 1. DATA AUTOMÁTICA (Brasília) ---
+# --- 1. NOTIFICAÇÃO PÓS-SYNC (Lógica Nova) ---
+# Verifica se acabou de ocorrer uma sincronização para exibir o aviso
+if st.session_state.get('sync_ok'):
+    st.toast("Sincronizado com a nuvem com sucesso! ☁️✅", icon="🔄")
+    st.session_state['sync_ok'] = False  # Reseta o aviso para não aparecer de novo sem motivo
+
+# --- 2. DATA AUTOMÁTICA (Brasília) ---
 fuso_br = pytz.timezone('America/Sao_Paulo')
 data_hoje = datetime.now(fuso_br).strftime('%d/%m/%Y')
 
-# --- 2. CONEXÃO COM FIREBASE ---
+# --- 3. CONEXÃO COM FIREBASE ---
 @st.cache_resource
 def get_db():
     key_dict = json.loads(st.secrets["firestore_key"])
@@ -29,12 +35,12 @@ def salvar_no_firebase():
     db.collection("expedicao").document("config").set(st.session_state.dados_controle)
 
 def carregar_do_firebase():
+    # Sem cache para garantir que sempre pega o dado mais recente
     doc = db.collection("expedicao").document("config").get()
     return doc.to_dict() if doc.exists else None
 
-# --- 3. FUNÇÕES DE CALLBACK (UPDATE RÁPIDO) ---
+# --- 4. FUNÇÕES DE CALLBACK (UPDATE RÁPIDO) ---
 def atualizar_ilha(rota):
-    # Pega o valor novo direto do widget pelo key e salva
     novo_valor = st.session_state[f"l_{rota}"]
     st.session_state.dados_controle[rota]['letra'] = novo_valor
     salvar_no_firebase()
@@ -44,7 +50,7 @@ def atualizar_hora(rota):
     st.session_state.dados_controle[rota]['janela'] = novo_valor
     salvar_no_firebase()
 
-# --- 4. ESTILIZAÇÃO CSS ---
+# --- 5. ESTILIZAÇÃO CSS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -58,7 +64,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. TÍTULOS ---
+# --- 6. TÍTULOS ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
 st.write(f"Autor: **Ezequiel Miranda**")
 
@@ -68,7 +74,7 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 6. INICIALIZAÇÃO DE DADOS ---
+# --- 7. INICIALIZAÇÃO DE DADOS ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
@@ -83,13 +89,17 @@ if 'dados_controle' not in st.session_state:
             "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
 
-# --- 7. BOTÕES DE AÇÃO ---
+# --- 8. BOTÕES DE AÇÃO ---
 col_sync, col_clear = st.columns([1, 1])
 with col_sync:
     if st.button("🔄 Sincronizar", use_container_width=True, type="primary"):
+        # Limpa cache de dados se houver (precaução) e puxa do banco
+        st.cache_data.clear()
         dados_novos = carregar_do_firebase()
+        
         if dados_novos:
             st.session_state.dados_controle = dados_novos
+            st.session_state['sync_ok'] = True # Ativa o gatilho da notificação
             st.rerun()
 
 with col_clear:
@@ -99,14 +109,14 @@ with col_clear:
         salvar_no_firebase()
         st.rerun()
 
-# --- 8. CABEÇALHO ---
+# --- 9. CABEÇALHO ---
 col_h1, col_h2 = st.columns(2)
 with col_h1:
     titulo_geral = st.text_input("Título", "CARREGAMENTO PM")
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 9. EXTRAÇÃO ---
+# --- 10. EXTRAÇÃO ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -138,12 +148,12 @@ if uploaded_file:
             salvar_no_firebase()
             st.rerun()
 
-# --- 10. EDIÇÃO INSTANTÂNEA ---
+# --- 11. EDIÇÃO INSTANTÂNEA ---
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
         
-        # Correção rápida: usa on_change para salvar assim que der Enter
+        # Edição rápida com Callback
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
@@ -184,7 +194,7 @@ for rota, info in st.session_state.dados_controle.items():
                 salvar_no_firebase()
                 st.rerun()
 
-# --- 11. WHATSAPP ---
+# --- 12. WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
 for rota, info in st.session_state.dados_controle.items():
@@ -204,10 +214,8 @@ for rota, info in st.session_state.dados_controle.items():
 
 if tem_placa:
     st.divider()
-    # CAMPO AUMENTADO PARA 800 PIXELS (Conforme seu pedido)
     st.text_area("Texto para Copiar", res_texto, height=800)
     
-    # Botão com função de cópia e alerta
     js_code = f"""
     <script>
     function copiarTexto() {{
