@@ -174,22 +174,15 @@ if uploaded_file:
 # --- 11. EDIÇÃO INSTANTÂNEA ---
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
-        c_l, c_h, c_a = st.columns([2, 2, 1])  # Ajuste no número de colunas
-
-        with c_l:
-            st.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
-
-        with c_h:
-            st.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
-
-        with c_a:
-            if st.button("➕ Placa", key=f"add_{rota}"):
-                st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
-                salvar_no_firebase()
-                st.rerun()
-
-        # Adicione a lógica de exibição das placas e status após isso
-
+        c_l, c_h, c_a = st.columns([1, 2, 1])
+        
+        c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
+        c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
+        
+        if c_a.button("➕ Placa", key=f"add_{rota}"):
+            st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
+            salvar_no_firebase()
+            st.rerun()
 
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2, 2, 0.5, 0.5])
@@ -261,6 +254,3 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
-
-
