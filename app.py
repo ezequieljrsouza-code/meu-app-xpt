@@ -75,15 +75,13 @@ def load_ocr():
 
 reader = load_ocr()
 
-# --- 7. INICIALIZAÇÃO DE DADOS (ORDEM FIXA GARANTIDA) ---
+# --- 7. INICIALIZAÇÃO DE DADOS (ORDEM FIXA) ---
 def organizar_dados(dados_brutos):
     ordem_fixa = ["EPA4", "EPA5", "ETO4", "EPA7", "EPA3", "EPA8"]
     dados_ordenados = {}
-    # Primeiro insere a ordem fixa se existir nos dados
     for rota in ordem_fixa:
         if rota in dados_brutos:
             dados_ordenados[rota] = dados_brutos[rota]
-    # Depois insere o que sobrou (rotas novas)
     for rota in dados_brutos:
         if rota not in dados_ordenados:
             dados_ordenados[rota] = dados_brutos[rota]
@@ -94,14 +92,13 @@ if 'dados_controle' not in st.session_state:
     if dados_nuvem:
         st.session_state.dados_controle = organizar_dados(dados_nuvem)
     else:
-        # Padrão inicial caso não haja nada na nuvem
         st.session_state.dados_controle = {
-            "EPA4": {"local": "Marabá", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
-            "EPA5": {"local": "Goianésia", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
-            "ETO4": {"local": "Parauapebas", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
-            "EPA7": {"local": "Canaã", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
-            "EPA3": {"local": "Paragominas", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
-            "EPA8": {"local": "Mãe do Rio", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
+            "EPA4": {"local": "MARABA", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
+            "EPA5": {"local": "GOIANESIA", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
+            "ETO4": {"local": "PARAUAPEBAS", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
+            "EPA7": {"local": "CANAA", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
+            "EPA3": {"local": "PARAGOMINAS", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
+            "EPA8": {"local": "MAE DO RIO", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
 
 # --- 8. BOTÕES DE AÇÃO ---
@@ -125,7 +122,7 @@ with col_clear:
 with col_add:
     with st.popover("➕ Nova Rota", use_container_width=True):
         nova_id = st.text_input("ID da Rota (ex: EPA9)").upper()
-        nova_cid = st.text_input("Cidade")
+        nova_cid = st.text_input("Cidade").upper()
         if st.button("Confirmar Adição"):
             if nova_id and nova_cid:
                 st.session_state.dados_controle[nova_id] = {"local": nova_cid, "janela": "00:00 às 00:00", "letra": "?", "veiculos": []}
@@ -139,31 +136,24 @@ with col_h1:
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 10. EXTRAÇÃO INTELIGENTE (MOTOR AJUSTADO) ---
+# --- 10. EXTRAÇÃO INTELIGENTE (BASEADA NO DESTINO) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR DADOS"):
-        with st.spinner("Extraindo linhas, ilhas e placas..."):
-            # 1. Leitura bruta com coordenadas
+        with st.spinner("Lendo print por destinos..."):
             resultados = reader.readtext(np.array(img), paragraph=False)
             
-            # Função auxiliar: centro vertical (Y)
             def get_y_center(bbox):
                 return (bbox[0][1] + bbox[2][1]) / 2
 
-            # 2. Agrupamento por Linhas Geométricas
             linhas = []
             if resultados:
-                # Ordena tudo de cima para baixo
                 resultados.sort(key=lambda x: get_y_center(x[0]))
-                
                 current_row = [resultados[0]]
                 last_y = get_y_center(resultados[0][0])
-                
                 for res in resultados[1:]:
                     curr_y = get_y_center(res[0])
-                    # Se estiver próximo verticalmente (25px), é a mesma linha
                     if abs(curr_y - last_y) < 25:
                         current_row.append(res)
                     else:
@@ -173,54 +163,40 @@ if uploaded_file:
                 linhas.append(current_row)
 
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
-            rotas_disponiveis = st.session_state.dados_controle.keys()
 
-            # 3. Processamento de cada linha
             for linha in linhas:
-                # Ordena itens da linha da Esquerda para a Direita (X)
                 linha.sort(key=lambda x: x[0][0][0])
-                
                 textos_linha = [item[1].strip().upper() for item in linha]
-                texto_completo_linha = "".join(textos_linha).replace(" ", "")
+                texto_completo_linha = " ".join(textos_linha)
 
-                # A. Identifica qual Rota está nesta linha
-                rota_encontrada = None
-                for r in rotas_disponiveis:
-                    if r in texto_completo_linha:
-                        rota_encontrada = r
+                rota_vinculada = None
+                # Busca por DESTINO (LOCAL) em vez de ID da Rota
+                for id_rota, info in st.session_state.dados_controle.items():
+                    destino = info['local'].upper()
+                    if destino in texto_completo_linha:
+                        rota_vinculada = id_rota
                         break
                 
-                if rota_encontrada:
-                    # B. Busca a Letra da Ilha (ex: "R", "A", ">A") na mesma linha
+                if rota_vinculada:
+                    # B. Extração da Ilha (preservando caracteres)
                     for txt in textos_linha:
-                        # IMPORTANTE: Não removemos caracteres especiais como ">"
-                        # Apenas removemos espaços para verificar o conteúdo
                         raw_txt = txt.replace(" ", "")
-                        
-                        # Critério para ser Ilha:
-                        # 1. Curto (1 a 3 chars para aceitar ">A")
-                        # 2. Não é a própria rota (ex: não é "EPA4")
-                        # 3. Não é "XPT"
-                        if 1 <= len(raw_txt) <= 3 and raw_txt not in rota_encontrada and "XPT" not in raw_txt:
-                            # Se tiver ao menos uma letra, consideramos válido (ex: ">A" tem 'A')
-                            if any(c.isalpha() for c in raw_txt):
-                                st.session_state.dados_controle[rota_encontrada]["letra"] = raw_txt
-                                break # Achamos a ilha (geralmente a esquerda), paramos de procurar ilha nesta linha
+                        # Ilha costuma ser curta e não é o nome da cidade nem a placa
+                        if 1 <= len(raw_txt) <= 3 and raw_txt not in st.session_state.dados_controle[rota_vinculada]['local']:
+                            if any(c.isalpha() for c in raw_txt) and not padrao_placa.search(raw_txt):
+                                st.session_state.dados_controle[rota_vinculada]["letra"] = raw_txt
+                                break
                     
-                    # C. Busca Placa na mesma linha
-                    placa_candidata = None
+                    # C. Extração da Placa
                     for txt in textos_linha:
                         clean_txt = txt.replace(" ", "").replace("-", "")
                         match = padrao_placa.search(clean_txt)
                         if match:
-                            placa_candidata = match.group(0)
-                            break # Achou placa, para de procurar nessa linha
-                    
-                    # SÓ ADICIONA se realmente tiver placa. Se for vazio, ignora.
-                    if placa_candidata:
-                        ja_existe = any(v['placa'] == placa_candidata for v in st.session_state.dados_controle[rota_encontrada]["veiculos"])
-                        if not ja_existe:
-                            st.session_state.dados_controle[rota_encontrada]["veiculos"].append({"placa": placa_candidata, "status": "PENDENTE"})
+                            placa = match.group(0)
+                            ja_existe = any(v['placa'] == placa for v in st.session_state.dados_controle[rota_vinculada]["veiculos"])
+                            if not ja_existe:
+                                st.session_state.dados_controle[rota_vinculada]["veiculos"].append({"placa": placa, "status": "PENDENTE"})
+                            break
             
             salvar_no_firebase()
             st.rerun()
@@ -229,7 +205,6 @@ if uploaded_file:
 for rota, info in st.session_state.dados_controle.items():
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
         c_l, c_h, c_a = st.columns([1, 2, 1])
-        
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
@@ -240,16 +215,13 @@ for rota, info in st.session_state.dados_controle.items():
 
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2, 2, 0.5, 0.5])
-            
             nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
             if nova_p != v['placa']:
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
             status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
-            novo_s = c2.selectbox("Status", status_opcoes, 
-                                  index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, 
-                                  key=f"s_{rota}_{idx}")
+            novo_s = c2.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx}")
             if novo_s != v['status']:
                 v['status'] = novo_s
                 salvar_no_firebase()
@@ -284,28 +256,23 @@ for rota, info in st.session_state.dados_controle.items():
             status_emoji = "🟡"
             if "FINALIZADO" in v['status']: status_emoji = "✅"
             elif "CANCELADO" in v['status']: status_emoji = "❌"
-            elif "AGUARDANDO CARREGAMENTO" in v['status']: status_emoji = "🕑"
+            elif "AGUARDANDO" in v['status']: status_emoji = "🕑"
             elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
-            
             res_texto += f"🚚 {v['placa']} - {v['status']} {status_emoji}\n"
         res_texto += "\n"
 
 if tem_placa:
     st.divider()
-    st.text_area("Texto para Copiar", res_texto, height=800)
-    
+    st.text_area("Texto para Copiar", res_texto, height=400)
     js_code = f"""
     <script>
     function copiarTexto() {{
         const textToCopy = `{res_texto}`;
         navigator.clipboard.writeText(textToCopy).then(() => {{
             alert("Texto copiado para o WhatsApp com sucesso! ✅");
-        }}).catch(err => {{
-            console.error('Erro ao copiar: ', err);
         }});
     }}
     </script>
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
