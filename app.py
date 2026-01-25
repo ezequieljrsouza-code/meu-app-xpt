@@ -139,23 +139,23 @@ with col_h1:
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 10. EXTRAÇÃO INTELIGENTE (LINHA A LINHA) ---
+# --- 10. EXTRAÇÃO INTELIGENTE (MOTOR AJUSTADO) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR DADOS"):
-        with st.spinner("Extraindo com precisão..."):
-            # Pega as caixas de texto com coordenadas
+        with st.spinner("Extraindo linhas, ilhas e placas..."):
+            # 1. Leitura bruta com coordenadas
             resultados = reader.readtext(np.array(img), paragraph=False)
             
-            # Função para pegar o centro vertical (Y) da caixa de texto
+            # Função auxiliar: centro vertical (Y)
             def get_y_center(bbox):
                 return (bbox[0][1] + bbox[2][1]) / 2
 
-            # Agrupamento por linhas (Clusterização vertical)
+            # 2. Agrupamento por Linhas Geométricas
             linhas = []
             if resultados:
-                # Ordena pelo topo (Y)
+                # Ordena tudo de cima para baixo
                 resultados.sort(key=lambda x: get_y_center(x[0]))
                 
                 current_row = [resultados[0]]
@@ -163,7 +163,7 @@ if uploaded_file:
                 
                 for res in resultados[1:]:
                     curr_y = get_y_center(res[0])
-                    # Se a diferença de altura for pequena (ex: < 20px), é a mesma linha
+                    # Se estiver próximo verticalmente (25px), é a mesma linha
                     if abs(curr_y - last_y) < 25:
                         current_row.append(res)
                     else:
@@ -175,12 +175,15 @@ if uploaded_file:
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
             rotas_disponiveis = st.session_state.dados_controle.keys()
 
-            # Processa cada linha identificada visualmente
+            # 3. Processamento de cada linha
             for linha in linhas:
+                # Ordena itens da linha da Esquerda para a Direita (X)
+                linha.sort(key=lambda x: x[0][0][0])
+                
                 textos_linha = [item[1].strip().upper() for item in linha]
                 texto_completo_linha = "".join(textos_linha).replace(" ", "")
 
-                # 1. Identifica a Rota nesta linha
+                # A. Identifica qual Rota está nesta linha
                 rota_encontrada = None
                 for r in rotas_disponiveis:
                     if r in texto_completo_linha:
@@ -188,23 +191,32 @@ if uploaded_file:
                         break
                 
                 if rota_encontrada:
-                    # 2. Identifica a Letra da Ilha nesta mesma linha
+                    # B. Busca a Letra da Ilha (ex: "R", "A", ">A") na mesma linha
                     for txt in textos_linha:
-                        clean_txt = txt.replace(" ", "")
-                        if len(clean_txt) == 1 and clean_txt.isalpha():
-                            st.session_state.dados_controle[rota_encontrada]["letra"] = clean_txt
+                        # IMPORTANTE: Não removemos caracteres especiais como ">"
+                        # Apenas removemos espaços para verificar o conteúdo
+                        raw_txt = txt.replace(" ", "")
+                        
+                        # Critério para ser Ilha:
+                        # 1. Curto (1 a 3 chars para aceitar ">A")
+                        # 2. Não é a própria rota (ex: não é "EPA4")
+                        # 3. Não é "XPT"
+                        if 1 <= len(raw_txt) <= 3 and raw_txt not in rota_encontrada and "XPT" not in raw_txt:
+                            # Se tiver ao menos uma letra, consideramos válido (ex: ">A" tem 'A')
+                            if any(c.isalpha() for c in raw_txt):
+                                st.session_state.dados_controle[rota_encontrada]["letra"] = raw_txt
+                                break # Achamos a ilha (geralmente a esquerda), paramos de procurar ilha nesta linha
                     
-                    # 3. Identifica a Placa nesta mesma linha
+                    # C. Busca Placa na mesma linha
                     placa_candidata = None
                     for txt in textos_linha:
                         clean_txt = txt.replace(" ", "").replace("-", "")
-                        # Remove sujeira para validar a placa
                         match = padrao_placa.search(clean_txt)
                         if match:
                             placa_candidata = match.group(0)
-                            break
+                            break # Achou placa, para de procurar nessa linha
                     
-                    # Só adiciona se encontrou placa VÁLIDA na MESMA linha da rota
+                    # SÓ ADICIONA se realmente tiver placa. Se for vazio, ignora.
                     if placa_candidata:
                         ja_existe = any(v['placa'] == placa_candidata for v in st.session_state.dados_controle[rota_encontrada]["veiculos"])
                         if not ja_existe:
