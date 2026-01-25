@@ -139,34 +139,76 @@ with col_h1:
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 10. EXTRAÇÃO ---
+# --- 10. EXTRAÇÃO INTELIGENTE (LINHA A LINHA) ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
     if st.button("🔍 EXTRAIR DADOS"):
-        with st.spinner("Extraindo..."):
-            resultados = reader.readtext(np.array(img))
-            bruto = [res[1].upper().strip() for res in resultados]
+        with st.spinner("Extraindo com precisão..."):
+            # Pega as caixas de texto com coordenadas
+            resultados = reader.readtext(np.array(img), paragraph=False)
+            
+            # Função para pegar o centro vertical (Y) da caixa de texto
+            def get_y_center(bbox):
+                return (bbox[0][1] + bbox[2][1]) / 2
+
+            # Agrupamento por linhas (Clusterização vertical)
+            linhas = []
+            if resultados:
+                # Ordena pelo topo (Y)
+                resultados.sort(key=lambda x: get_y_center(x[0]))
+                
+                current_row = [resultados[0]]
+                last_y = get_y_center(resultados[0][0])
+                
+                for res in resultados[1:]:
+                    curr_y = get_y_center(res[0])
+                    # Se a diferença de altura for pequena (ex: < 20px), é a mesma linha
+                    if abs(curr_y - last_y) < 25:
+                        current_row.append(res)
+                    else:
+                        linhas.append(current_row)
+                        current_row = [res]
+                        last_y = curr_y
+                linhas.append(current_row)
+
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
-            
-            for i, texto in enumerate(bruto):
-                for rota_id in st.session_state.dados_controle.keys():
-                    if rota_id in texto:
-                        for busca in range(1, 4):
-                            if i - busca >= 0:
-                                cand = bruto[i-busca].replace(" ", "")
-                                if 1 <= len(cand) <= 3 and "XPT" not in cand:
-                                    st.session_state.dados_controle[rota_id]["letra"] = cand
-                                    break
-            
-            curr_xpt = None
-            for texto in bruto:
-                txt_limpo = texto.replace(" ", "")
-                for rota in st.session_state.dados_controle.keys():
-                    if rota in txt_limpo: curr_xpt = rota
-                if padrao_placa.match(txt_limpo) and curr_xpt:
-                    if not any(v['placa'] == txt_limpo for v in st.session_state.dados_controle[curr_xpt]["veiculos"]):
-                        st.session_state.dados_controle[curr_xpt]["veiculos"].append({"placa": txt_limpo, "status": "PENDENTE"})
+            rotas_disponiveis = st.session_state.dados_controle.keys()
+
+            # Processa cada linha identificada visualmente
+            for linha in linhas:
+                textos_linha = [item[1].strip().upper() for item in linha]
+                texto_completo_linha = "".join(textos_linha).replace(" ", "")
+
+                # 1. Identifica a Rota nesta linha
+                rota_encontrada = None
+                for r in rotas_disponiveis:
+                    if r in texto_completo_linha:
+                        rota_encontrada = r
+                        break
+                
+                if rota_encontrada:
+                    # 2. Identifica a Letra da Ilha nesta mesma linha
+                    for txt in textos_linha:
+                        clean_txt = txt.replace(" ", "")
+                        if len(clean_txt) == 1 and clean_txt.isalpha():
+                            st.session_state.dados_controle[rota_encontrada]["letra"] = clean_txt
+                    
+                    # 3. Identifica a Placa nesta mesma linha
+                    placa_candidata = None
+                    for txt in textos_linha:
+                        clean_txt = txt.replace(" ", "").replace("-", "")
+                        # Remove sujeira para validar a placa
+                        match = padrao_placa.search(clean_txt)
+                        if match:
+                            placa_candidata = match.group(0)
+                            break
+                    
+                    # Só adiciona se encontrou placa VÁLIDA na MESMA linha da rota
+                    if placa_candidata:
+                        ja_existe = any(v['placa'] == placa_candidata for v in st.session_state.dados_controle[rota_encontrada]["veiculos"])
+                        if not ja_existe:
+                            st.session_state.dados_controle[rota_encontrada]["veiculos"].append({"placa": placa_candidata, "status": "PENDENTE"})
             
             salvar_no_firebase()
             st.rerun()
