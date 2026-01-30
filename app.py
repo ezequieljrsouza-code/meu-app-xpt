@@ -117,7 +117,7 @@ with col_clear:
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
-            st.session_state.dados_controle[rota]["letra"] = "?" # Limpa as letras também
+            st.session_state.dados_controle[rota]["letra"] = "?" 
         salvar_no_firebase()
         st.toast("Dados e letras limpos com sucesso! 🗑️", icon="✅")
         st.rerun()
@@ -242,6 +242,9 @@ for rota, info in st.session_state.dados_controle.items():
                     info['veiculos'].pop(idx)
                     salvar_no_firebase()
                     st.rerun()
+            
+            # ADICIONADO: Divisória entre os campos de placas
+            st.divider()
 
 # --- 12. WHATSAPP ---
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
