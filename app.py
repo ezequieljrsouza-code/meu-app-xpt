@@ -10,7 +10,8 @@ import json
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Expedição SPA1", layout="wide")
+# Configuração da Página
+st.set_page_config(page_title="Expedição SPA1", page_icon="🚚", layout="wide")
 
 # --- NOME NO TOPO ---
 st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
@@ -276,5 +277,6 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
 
 
