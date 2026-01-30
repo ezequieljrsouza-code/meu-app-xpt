@@ -117,7 +117,9 @@ with col_clear:
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
+            st.session_state.dados_controle[rota]["letra"] = "?" # Limpa as letras também
         salvar_no_firebase()
+        st.toast("Dados e letras limpos com sucesso! 🗑️", icon="✅")
         st.rerun()
 
 with col_add:
@@ -171,7 +173,6 @@ if uploaded_file:
                 texto_completo_linha = " ".join(textos_linha)
 
                 rota_vinculada = None
-                # Busca por DESTINO (LOCAL) em vez de ID da Rota
                 for id_rota, info in st.session_state.dados_controle.items():
                     destino = info['local'].upper()
                     if destino in texto_completo_linha:
@@ -179,16 +180,13 @@ if uploaded_file:
                         break
                 
                 if rota_vinculada:
-                    # B. Extração da Ilha (preservando caracteres)
                     for txt in textos_linha:
                         raw_txt = txt.replace(" ", "")
-                        # Ilha costuma ser curta e não é o nome da cidade nem a placa
                         if 1 <= len(raw_txt) <= 3 and raw_txt not in st.session_state.dados_controle[rota_vinculada]['local']:
                             if any(c.isalpha() for c in raw_txt) and not padrao_placa.search(raw_txt):
                                 st.session_state.dados_controle[rota_vinculada]["letra"] = raw_txt
                                 break
                     
-                    # C. Extração da Placa
                     for txt in textos_linha:
                         clean_txt = txt.replace(" ", "").replace("-", "")
                         match = padrao_placa.search(clean_txt)
@@ -277,6 +275,3 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
-
-
