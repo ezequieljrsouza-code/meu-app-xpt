@@ -208,6 +208,7 @@ for rota, info in st.session_state.dados_controle.items():
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
         if c_a.button("➕ Placa", key=f"add_{rota}"):
+            c_l, c_h, c_a = st.columns([1, 2, 1])
             st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
             salvar_no_firebase()
             st.rerun()
@@ -278,4 +279,5 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
 
