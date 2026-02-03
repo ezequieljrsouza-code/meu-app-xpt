@@ -68,7 +68,7 @@ st.markdown("""
 
 # --- 6. TÍTULO PRINCIPAL ---
 st.title("📦 Controle de Carregamento XPT SPA1 - PM")
-st.write(f"Autor: **Ezequiel Miranda**")
+st.write(f"Analista: **Ezequiel Miranda**")
 
 @st.cache_resource
 def load_ocr():
@@ -278,3 +278,4 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
