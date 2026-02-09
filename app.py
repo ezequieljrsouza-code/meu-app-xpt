@@ -47,6 +47,11 @@ def atualizar_ilha(rota):
     st.session_state.dados_controle[rota]['letra'] = novo_valor
     salvar_no_firebase()
 
+def atualizar_doca(rota): # NOVA FUNÇÃO
+    novo_valor = st.session_state[f"d_{rota}"]
+    st.session_state.dados_controle[rota]['doca'] = novo_valor
+    salvar_no_firebase()
+
 def atualizar_hora(rota):
     novo_valor = st.session_state[f"h_{rota}"]
     st.session_state.dados_controle[rota]['janela'] = novo_valor
@@ -93,13 +98,14 @@ if 'dados_controle' not in st.session_state:
     if dados_nuvem:
         st.session_state.dados_controle = organizar_dados(dados_nuvem)
     else:
+        # Adicionado campo 'doca' na inicialização padrão
         st.session_state.dados_controle = {
-            "EPA4": {"local": "MARABA", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
-            "EPA5": {"local": "GOIANESIA", "janela": "12:00 às 14:00", "letra": "?", "veiculos": []},
-            "ETO4": {"local": "PARAUAPEBAS", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
-            "EPA7": {"local": "CANAA", "janela": "13:30 às 15:30", "letra": "?", "veiculos": []},
-            "EPA3": {"local": "PARAGOMINAS", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
-            "EPA8": {"local": "MAE DO RIO", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
+            "EPA4": {"local": "MARABA", "janela": "12:00 às 14:00", "letra": "?", "doca": "?", "veiculos": []},
+            "EPA5": {"local": "GOIANESIA", "janela": "12:00 às 14:00", "letra": "?", "doca": "?", "veiculos": []},
+            "ETO4": {"local": "PARAUAPEBAS", "janela": "13:30 às 15:30", "letra": "?", "doca": "?", "veiculos": []},
+            "EPA7": {"local": "CANAA", "janela": "13:30 às 15:30", "letra": "?", "doca": "?", "veiculos": []},
+            "EPA3": {"local": "PARAGOMINAS", "janela": "14:30 às 16:30", "letra": "?", "doca": "?", "veiculos": []},
+            "EPA8": {"local": "MAE DO RIO", "janela": "14:30 às 16:30", "letra": "?", "doca": "?", "veiculos": []},
         }
 
 # --- 8. BOTÕES DE AÇÃO ---
@@ -117,9 +123,10 @@ with col_clear:
     if st.button("🗑️ Limpar Tudo", use_container_width=True, type="secondary"):
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
-            st.session_state.dados_controle[rota]["letra"] = "?" 
+            st.session_state.dados_controle[rota]["letra"] = "?"
+            st.session_state.dados_controle[rota]["doca"] = "?" # Limpa a doca também
         salvar_no_firebase()
-        st.toast("Dados e letras limpos com sucesso! 🗑️", icon="✅")
+        st.toast("Dados, letras e docas limpos com sucesso! 🗑️", icon="✅")
         st.rerun()
 
 with col_add:
@@ -128,7 +135,7 @@ with col_add:
         nova_cid = st.text_input("Cidade").upper()
         if st.button("Confirmar Adição"):
             if nova_id and nova_cid:
-                st.session_state.dados_controle[nova_id] = {"local": nova_cid, "janela": "00:00 às 00:00", "letra": "?", "veiculos": []}
+                st.session_state.dados_controle[nova_id] = {"local": nova_cid, "janela": "00:00 às 00:00", "letra": "?", "doca": "?", "veiculos": []}
                 salvar_no_firebase()
                 st.rerun()
 
@@ -175,18 +182,19 @@ if uploaded_file:
                 rota_vinculada = None
                 for id_rota, info in st.session_state.dados_controle.items():
                     destino = info['local'].upper()
-                    if destino in texto_completo_linha:
+                    if id_rota in texto_completo_linha or destino in texto_completo_linha:
                         rota_vinculada = id_rota
                         break
                 
                 if rota_vinculada:
+                    # Captura Letra (CORRIGIDO)
                     for txt in textos_linha:
-                        raw_txt = txt.replace(" ", "")
-                        if 1 <= len(raw_txt) <= 3 and raw_txt not in st.session_state.dados_controle[rota_vinculada]['local']:
-                            if any(c.isalpha() for c in raw_txt) and not padrao_placa.search(raw_txt):
-                                st.session_state.dados_controle[rota_vinculada]["letra"] = raw_txt
-                                break
+                        letra_limpa = re.sub(r'[^A-Z]', '', txt.replace("XPT", ""))
+                        if 1 <= len(letra_limpa) <= 2:
+                            st.session_state.dados_controle[rota_vinculada]["letra"] = letra_limpa
+                            break
                     
+                    # Captura Placa
                     for txt in textos_linha:
                         clean_txt = txt.replace(" ", "").replace("-", "")
                         match = padrao_placa.search(clean_txt)
@@ -202,16 +210,19 @@ if uploaded_file:
 
 # --- 11. EDIÇÃO INSTANTÂNEA ---
 for rota, info in st.session_state.dados_controle.items():
-    with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
-        c_l, c_h, c_a = st.columns([1, 2, 1])
+    with st.expander(f"📍 {rota} | Ilha: {info['letra']} | Doca: {info.get('doca', '?')} | {info['local']}", expanded=True):
+        # ALTERAÇÃO: Dividido em 4 colunas para incluir a Doca
+        c_l, c_d, c_h, c_a = st.columns([1, 1, 2, 1])
+        
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
+        # Novo campo Doca
+        c_d.text_input("Doca", value=info.get('doca', '?'), key=f"d_{rota}", on_change=atualizar_doca, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
         if c_a.button("➕ Placa", key=f"add_{rota}"):
             st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE"})
             salvar_no_firebase()
             st.rerun()
-
 
         for idx, v in enumerate(info['veiculos']):
             c1, c2, c_move, c3 = st.columns([2, 2, 0.5, 0.5])
@@ -244,7 +255,6 @@ for rota, info in st.session_state.dados_controle.items():
                     salvar_no_firebase()
                     st.rerun()
             
-            # ADICIONADO: Divisória entre os campos de placas
             st.divider()
 
 # --- 12. WHATSAPP ---
@@ -254,6 +264,7 @@ for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
     if v_validos:
         tem_placa = True
+        # Mantido o formato original do WhatsApp conforme solicitado
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
             status_emoji = "🟡"
@@ -279,8 +290,3 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
-
-
-
-
-
