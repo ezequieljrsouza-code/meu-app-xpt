@@ -229,8 +229,7 @@ for rota, info in st.session_state.dados_controle.items():
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            # Doca (NOVO CAMPO AQUI)
-            # Garante que a chave existe (compatibilidade com dados antigos)
+            # Doca
             if "doca" not in v:
                 v["doca"] = ""
             
@@ -239,11 +238,21 @@ for rota, info in st.session_state.dados_controle.items():
                 v['doca'] = nova_d
                 salvar_no_firebase()
 
-            # Status
+            # Status (COM GATILHO DE HORA)
             status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
             novo_s = c2.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx}")
+            
             if novo_s != v['status']:
                 v['status'] = novo_s
+                
+                # --- INÍCIO DA ALTERAÇÃO (GATILHO DE HORÁRIO) ---
+                if novo_s == "FINALIZADO":
+                    v['hora_finalizacao'] = datetime.now(fuso_br).strftime('%H:%M')
+                elif "hora_finalizacao" in v:
+                    # Opcional: Remove o horário se sair de FINALIZADO
+                    del v['hora_finalizacao']
+                # --- FIM DA ALTERAÇÃO ---
+
                 salvar_no_firebase()
             
             # Botão Mover
@@ -278,13 +287,14 @@ for rota, info in st.session_state.dados_controle.items():
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
             status_emoji = "🟡"
-            if "FINALIZADO" in v['status']: status_emoji = "✅"
+            if "FINALIZADO" in v['status']:
+                # Adiciona o horário ao emoji se existir
+                hora = v.get('hora_finalizacao', '')
+                status_emoji = f"✅ {hora}"
             elif "CANCELADO" in v['status']: status_emoji = "❌"
             elif "AGUARDANDO" in v['status']: status_emoji = "🕑"
             elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
             
-            # Formatação do texto do WhatsApp (opcionalmente pode incluir a doca se desejar, 
-            # mas mantive o padrão original conforme pedido)
             texto_doca = f" [Doca: {v.get('doca', '')}]" if v.get('doca') else ""
             res_texto += f"🚚 {v['placa']}{texto_doca} - {v['status']} {status_emoji}\n"
         res_texto += "\n"
