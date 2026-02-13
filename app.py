@@ -301,7 +301,7 @@ for rota, info in st.session_state.dados_controle.items():
 
 if tem_placa:
     st.divider()
-    st.text_area("Texto para Copiar", res_texto, height=850)
+    st.text_area("Texto para Copiar", res_texto, height=980)
     js_code = f"""
     <script>
     function copiarTexto() {{
@@ -314,3 +314,4 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
