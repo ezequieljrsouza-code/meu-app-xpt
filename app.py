@@ -249,7 +249,7 @@ for rota, info in st.session_state.dados_controle.items():
                 if novo_s == "Finalizado":
                     v['hora_finalizacao'] = datetime.now(fuso_br).strftime('%H:%M')
                 elif "hora_finalizacao" in v:
-                    # Opcional: Remove o horário se sair de FINALIZADO
+                    # Opcional: Remove o horário se sair de Finalizado
                     del v['hora_finalizacao']
                 # --- FIM DA ALTERAÇÃO ---
 
@@ -291,9 +291,9 @@ for rota, info in st.session_state.dados_controle.items():
                 # Adiciona o horário ao emoji se existir
                 hora = v.get('hora_finalizacao', '')
                 status_emoji = f"✅ {hora}"
-            elif "CANCELADO" in v['status']: status_emoji = "❌"
-            elif "AGUARDANDO" in v['status']: status_emoji = "🕑"
-            elif "CARREGAMENTO" in v['status']: status_emoji = "⏳"
+            elif "Cancelado" in v['status']: status_emoji = "❌"
+            elif "Aguardando" in v['status']: status_emoji = "🕑"
+            elif "Carregamento" in v['status']: status_emoji = "⏳"
             
             texto_doca = f" [Doca: {v.get('doca', '')}]" if v.get('doca') else ""
             res_texto += f"🚚 {v['placa']}{texto_doca} - {v['status']} {status_emoji}\n"
@@ -314,5 +314,6 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
 
 
