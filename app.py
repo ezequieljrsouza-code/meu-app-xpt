@@ -67,7 +67,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 6. TÍTULO PRINCIPAL ---
-st.title("📦 Controle de Carregamento XPT SPA1 - PM")
+st.title("📦 Controle de Carregamento XPT SPA1 - PM/MM")
 st.write(f"Analista: **Ezequiel Miranda**")
 
 @st.cache_resource
@@ -239,14 +239,14 @@ for rota, info in st.session_state.dados_controle.items():
                 salvar_no_firebase()
 
             # Status (COM GATILHO DE HORA)
-            status_opcoes = ["PENDENTE", "FINALIZADO", "EM CARREGAMENTO", "CANCELADO", "AGUARDANDO CARREGAMENTO"]
+            status_opcoes = ["Pendente", "Finalizado", "Em carregamento", "Cancelado", "Aguardando carregamento"]
             novo_s = c2.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx}")
             
             if novo_s != v['status']:
                 v['status'] = novo_s
                 
                 # --- INÍCIO DA ALTERAÇÃO (GATILHO DE HORÁRIO) ---
-                if novo_s == "FINALIZADO":
+                if novo_s == "Finalizado":
                     v['hora_finalizacao'] = datetime.now(fuso_br).strftime('%H:%M')
                 elif "hora_finalizacao" in v:
                     # Opcional: Remove o horário se sair de FINALIZADO
@@ -287,7 +287,7 @@ for rota, info in st.session_state.dados_controle.items():
         res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
             status_emoji = "🟡"
-            if "FINALIZADO" in v['status']:
+            if "Finalizado" in v['status']:
                 # Adiciona o horário ao emoji se existir
                 hora = v.get('hora_finalizacao', '')
                 status_emoji = f"✅ {hora}"
@@ -314,4 +314,5 @@ if tem_placa:
     <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
     """
     components.html(js_code, height=70)
+
 
