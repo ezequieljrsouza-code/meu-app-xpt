@@ -284,29 +284,48 @@ for rota, info in st.session_state.dados_controle.items():
             st.divider()
 
 # --- 12. WHATSAPP ---
+
 res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
 tem_placa = False
+
 for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
+    
     if v_validos:
         tem_placa = True
-        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
+        
+        res_texto += (
+            f"*{rota}* ({info['local']}) ({info['janela']})\n"
+            f"Letra: *{info['letra']}*\n"
+        )
+
         for v in v_validos:
-           status_emoji = {
-    "Pendente": "🟡",
-    "Finalizado": f"✅ {v.get('hora_finalizacao', '')}",
-    "Cancelado": "❌",
-    "Aguardando Carregamento": "🕑",
-    "Em Carregamento": "⏳"
-    }.get(v['status'], "🟡")
-            
+
+            # Mapeamento seguro de status -> emoji
+            status_emoji = {
+                "Pendente": "🟡",
+                "Finalizado": f"✅ {v.get('hora_finalizacao', '')}",
+                "Cancelado": "❌",
+                "Aguardando Carregamento": "🕑",
+                "Em Carregamento": "⏳"
+            }.get(v['status'], "🟡")
+
+            # Doca opcional
             texto_doca = f" [Doca: {v.get('doca', '')}]" if v.get('doca') else ""
-            res_texto += f"🚚 {v['placa']}{texto_doca} - {v['status']} {status_emoji}\n"
+
+            res_texto += (
+                f"🚚 {v['placa']}{texto_doca} - "
+                f"{v['status']} {status_emoji}\n"
+            )
+
         res_texto += "\n"
+
 
 if tem_placa:
     st.divider()
+    
     st.text_area("Texto para Copiar", res_texto, height=980)
+
     js_code = f"""
     <script>
     function copiarTexto() {{
@@ -316,11 +335,19 @@ if tem_placa:
         }});
     }}
     </script>
-    <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>
+
+    <button style="
+        width:100%;
+        background:#25D366;
+        color:white;
+        border:none;
+        padding:12px;
+        border-radius:8px;
+        font-weight:bold;
+        cursor:pointer;
+    " onclick="copiarTexto()">
+        COPIAR PARA WHATSAPP
+    </button>
     """
+
     components.html(js_code, height=70)
-
-
-
-
-
