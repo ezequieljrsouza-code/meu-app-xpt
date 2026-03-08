@@ -331,7 +331,7 @@ if tem_placa:
     function copiarTexto() {{
         const textToCopy = `{res_texto}`;
         navigator.clipboard.writeText(textToCopy).then(() => {{
-            alert("Texto copiado para o WhatsApp com sucesso! ✅");
+            alert("Texto copiado para o WhatsApp! ✅");
         }});
     }}
     </script>
@@ -351,3 +351,4 @@ if tem_placa:
     """
 
     components.html(js_code, height=70)
+
