@@ -38,30 +38,31 @@ def carregar_do_firebase():
     doc = db.collection("expedicao").document("config").get()
     return doc.to_dict() if doc.exists else None
 
-# --- 2. ESTILIZAÇÃO CSS (FOCO NOS CABEÇALHOS) ---
+# --- 2. ESTILIZAÇÃO CSS AVANÇADA (EXPANDERS COLORIDOS) ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     .stDeployButton {display:none;}
     
-    /* Estilo para os cards das rotas */
-    .rota-card {
-        border-radius: 10px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(255,255,255,0.1);
-        overflow: hidden;
+    /* Estilização Geral dos Expanders */
+    .stExpander {
+        border: none !important;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.2);
+        margin-bottom: 15px !important;
     }
     
-    /* Estilo do Cabeçalho da Rota */
-    .rota-header {
-        padding: 10px 15px;
-        color: white;
-        font-weight: bold;
-        font-size: 1.1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-radius: 10px 10px 0 0;
+    /* Forçar a cor do texto do cabeçalho para branco quando colorido */
+    .stExpander summary p {
+        color: white !important;
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+    }
+
+    /* Estilo para os botões de status dentro das colunas */
+    div[data-testid="stVerticalBlock"] > div:has(button.st-emotion-cache-12fmjuu) {
+        background-color: rgba(255,255,255,0.05);
+        padding: 10px;
+        border-radius: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -75,7 +76,7 @@ def load_ocr():
     return easyocr.Reader(['pt'])
 reader = load_ocr()
 
-# --- 4. INICIALIZAÇÃO DE DADOS ---
+# --- 4. INICIALIZAÇÃO E CARREGAMENTO DE DADOS ---
 if 'dados_controle' not in st.session_state:
     dados_nuvem = carregar_do_firebase()
     if dados_nuvem:
@@ -90,122 +91,123 @@ if 'dados_controle' not in st.session_state:
             "EPA8": {"local": "MAE DO RIO", "janela": "14:30 às 16:30", "letra": "?", "veiculos": []},
         }
 
-# --- 5. BOTÕES DE AÇÃO ---
-col_sync, col_clear = st.columns([1, 1])
-with col_sync:
+# --- 5. BOTÕES DE CONTROLE ---
+col_s, col_l, col_n = st.columns([1, 1, 1])
+with col_s:
     if st.button("🔄 Sincronizar Nuvem", use_container_width=True, type="primary"):
-        dados_novos = carregar_do_firebase()
-        if dados_novos:
-            st.session_state.dados_controle = dados_novos
-            st.rerun()
-
-with col_clear:
-    if st.button("🗑️ Limpar Tudo", use_container_width=True):
-        for r in st.session_state.dados_controle:
-            st.session_state.dados_controle[r]["veiculos"] = []
-        st.session_state.horario_inicio = ""
-        st.session_state.ciclo_finalizado = False
-        salvar_no_firebase()
+        st.session_state.dados_controle = carregar_do_firebase()
         st.rerun()
+with col_l:
+    if st.button("🗑️ Limpar Placas", use_container_width=True):
+        for r in st.session_state.dados_controle: st.session_state.dados_controle[r]["veiculos"] = []
+        st.session_state.horario_inicio = ""; st.session_state.ciclo_finalizado = False
+        salvar_no_firebase(); st.rerun()
+with col_n:
+    with st.popover("➕ Nova Rota", use_container_width=True):
+        id_r = st.text_input("ID").upper()
+        cid_r = st.text_input("Cidade").upper()
+        if st.button("Adicionar"):
+            st.session_state.dados_controle[id_r] = {"local": cid_r, "janela": "00:00 às 00:00", "letra": "?", "veiculos": []}
+            salvar_no_firebase(); st.rerun()
 
-# --- 6. EXIBIÇÃO DAS ROTAS COM CORES NOS CABEÇALHOS ---
-cores_rotas = {
-    "EPA4": "#E63946", "EPA5": "#1D3557", "ETO4": "#06D6A0",
-    "EPA7": "#F4A261", "EPA3": "#8338EC", "EPA8": "#3A86FF"
+# --- 6. EXIBIÇÃO DAS ROTAS COM EXPANDERS COLORIDOS ---
+cores_config = {
+    "EPA4": "#D00000", "EPA5": "#004B93", "ETO4": "#008F5A",
+    "EPA7": "#D97706", "EPA3": "#6D28D9", "EPA8": "#2563EB"
 }
-cor_padrao = "#457B9D"
+cor_generica = "#475569"
 
 for rota, info in st.session_state.dados_controle.items():
-    cor = cores_rotas.get(rota, cor_padrao)
+    cor = cores_config.get(rota, cor_generica)
     
-    # Criando o cabeçalho personalizado
+    # CSS dinâmico para pintar apenas o cabeçalho deste expander específico
     st.markdown(f"""
-        <div class="rota-header" style="background-color: {cor};">
-            <span>📍 {rota} | {info['local']}</span>
-            <span style="font-size: 0.9rem; opacity: 0.9;">Ilha: {info['letra']} | {info['janela']}</span>
-        </div>
+        <style>
+        div[data-testid="stExpander"]:has(p:contains("{rota}")) summary {{
+            background-color: {cor} !important;
+            border-radius: 8px 8px 0px 0px;
+        }}
+        div[data-testid="stExpander"]:has(p:contains("{rota}")) {{
+            border: 2px solid {cor} !important;
+            border-radius: 10px !important;
+        }}
+        </style>
     """, unsafe_allow_html=True)
     
-    # Conteúdo da rota dentro de um container com borda da mesma cor
-    with st.container(border=True):
-        c_l, c_h, c_a = st.columns([1, 2, 1])
+    # Título do Expander (visível mesmo quando minimizado)
+    titulo_expander = f"📍 {rota} | Ilha: {info['letra']} | {info['local']} ({info['janela']})"
+    
+    with st.expander(titulo_expander, expanded=True):
+        c1, c2, c3 = st.columns([1, 2, 1])
         
-        # Inputs que salvam automaticamente
-        nova_ilha = c_l.text_input("Ilha", info['letra'], key=f"l_{rota}")
+        # Edição rápida da Rota
+        nova_ilha = c1.text_input("Ilha", info['letra'], key=f"ilha_{rota}")
         if nova_ilha != info['letra']:
-            info['letra'] = nova_ilha
-            salvar_no_firebase()
+            info['letra'] = nova_ilha; salvar_no_firebase()
             
-        nova_janela = c_h.text_input("Janela", info['janela'], key=f"h_{rota}")
+        nova_janela = c2.text_input("Janela", info['janela'], key=f"jan_{rota}")
         if nova_janela != info['janela']:
-            info['janela'] = nova_janela
-            salvar_no_firebase()
+            info['janela'] = nova_janela; salvar_no_firebase()
 
-        if c_a.button("➕ Veículo", key=f"add_{rota}", use_container_width=True):
+        if c3.button("➕ Veículo", key=f"btn_{rota}", use_container_width=True):
             info['veiculos'].append({"placa": "", "status": "Pendente", "doca": ""})
-            salvar_no_firebase()
-            st.rerun()
+            salvar_no_firebase(); st.rerun()
 
-        # Listagem de Veículos
-        for idx_v, v in enumerate(info['veiculos']):
+        # Tabela de Veículos
+        for idx, v in enumerate(info['veiculos']):
             col_p, col_d, col_s, col_x = st.columns([2, 1, 2, 0.5])
             
-            v['placa'] = col_p.text_input("Placa", v['placa'], key=f"p_{rota}_{idx_v}").upper()
-            v['doca'] = col_d.text_input("Doca", v.get('doca', ''), key=f"d_{rota}_{idx_v}").upper()
+            v['placa'] = col_p.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
+            v['doca'] = col_d.text_input("Doca", v.get('doca', ''), key=f"d_{rota}_{idx}").upper()
             
-            status_opcoes = ["Pendente", "Em Carregamento", "Finalizado", "Aguardando Carregamento", "Cancelado"]
-            v['status'] = col_s.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx_v}")
+            opcoes = ["Pendente", "Em Carregamento", "Finalizado", "Aguardando Carregamento", "Cancelado"]
+            v['status'] = col_s.selectbox("Status", opcoes, index=opcoes.index(v['status']) if v['status'] in opcoes else 0, key=f"s_{rota}_{idx}")
             
-            if col_x.button("❌", key=f"x_{rota}_{idx_v}"):
-                info['veiculos'].pop(idx_v)
-                salvar_no_firebase()
-                st.rerun()
-    st.markdown("<br>", unsafe_allow_html=True)
+            if col_x.button("❌", key=f"del_{rota}_{idx}"):
+                info['veiculos'].pop(idx)
+                salvar_no_firebase(); st.rerun()
+            st.divider()
 
-# --- 7. WHATSAPP ---
+# --- 7. RELATÓRIO WHATSAPP ---
 st.divider()
-st.subheader("📲 Relatório WhatsApp")
-col_in, col_fim, col_res = st.columns(3)
+st.subheader("📲 Relatório para WhatsApp")
+col_bt1, col_bt2, col_bt3 = st.columns(3)
 
 fuso = pytz.timezone('America/Sao_Paulo')
-if col_in.button("▶️ Início"):
-    st.session_state.horario_inicio = datetime.now(fuso).strftime('%H:%M')
-    st.rerun()
-if col_fim.button("🏁 Fim"):
-    st.session_state.ciclo_finalizado = True
-    st.rerun()
-if col_res.button("🔄 Reset"):
-    st.session_state.horario_inicio = ""
-    st.session_state.ciclo_finalizado = False
-    st.rerun()
+if col_bt1.button("▶️ Registrar Início"):
+    st.session_state.horario_inicio = datetime.now(fuso).strftime('%H:%M'); st.rerun()
+if col_bt2.button("🏁 Registrar Fim"):
+    st.session_state.ciclo_finalizado = True; st.rerun()
+if col_bt3.button("🔄 Resetar Ciclo"):
+    st.session_state.horario_inicio = ""; st.session_state.ciclo_finalizado = False; st.rerun()
 
-# Montagem do Texto
-txt_wa = f"*CARREGAMENTO PM/MM - {datetime.now(fuso).strftime('%d/%m/%Y')}*\n"
-if st.session_state.horario_inicio: txt_wa += f"INICIO: {st.session_state.horario_inicio}\n"
-txt_wa += "\n"
+# Construção do Texto
+texto_final = f"*CARREGAMENTO PM/MM - {datetime.now(fuso).strftime('%d/%m/%Y')}*\n"
+if st.session_state.horario_inicio: texto_final += f"INICIO: {st.session_state.horario_inicio}\n"
+texto_final += "\n"
 
 for rota, info in st.session_state.dados_controle.items():
     if info['veiculos']:
-        txt_wa += f"*{rota}* ({info['local']}) - Ilha: {info['letra']}\n"
+        texto_final += f"*{rota}* ({info['local']}) - Ilha: {info['letra']}\n"
         for v in info['veiculos']:
-            emoji = "🟡" if v['status'] != "Finalizado" else "✅"
-            doca_txt = f" [Doca {v['doca']}]" if v['doca'] else ""
-            txt_wa += f"🚚 {v['placa']}{doca_txt} - {v['status']} {emoji}\n"
-        txt_wa += "\n"
+            emj = "✅" if v['status'] == "Finalizado" else "🟡"
+            dc = f" [Doca {v['doca']}]" if v['doca'] else ""
+            texto_final += f"🚚 {v['placa']}{dc} - {v['status']} {emj}\n"
+        texto_final += "\n"
 
-if st.session_state.ciclo_finalizado: txt_wa += "CICLO FINALIZADO ✅"
+if st.session_state.ciclo_finalizado: texto_final += "CICLO FINALIZADO ✅"
 
-st.text_area("Texto para Copiar", txt_wa, height=800)
+st.text_area("Prévia do Texto", texto_final, height=800)
 
-js_copiar = f"""
+js_code = f"""
 <script>
 function copiar() {{
-    navigator.clipboard.writeText(`{txt_wa}`);
-    alert("Copiado!");
+    navigator.clipboard.writeText(`{texto_final}`);
+    alert("Relatório copiado para a área de transferência!");
 }}
 </script>
-<button onclick="copiar()" style="width:100%; padding:10px; background:#25D366; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">
+<button onclick="copiar()" style="width:100%; padding:15px; background:#25D366; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">
     COPIAR PARA WHATSAPP
 </button>
 """
-components.html(js_copiar, height=60)
+components.html(js_code, height=80)
