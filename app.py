@@ -329,7 +329,7 @@ if st.session_state.ciclo_finalizado:
     res_texto += "CICLO PM_MM FINALIZADO ✅\n"
 
 if tem_placa:
-    st.text_area("Texto para Copiar", res_texto, height=400)
+    st.text_area("Texto para Copiar", res_texto, height=800)
     js_code = f"""
     <script>
     function copiarTexto() {{
