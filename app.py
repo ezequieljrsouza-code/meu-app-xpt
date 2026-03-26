@@ -16,6 +16,12 @@ st.set_page_config(page_title="Expedição SPA1", page_icon="🚚", layout="wide
 # --- NOME NO TOPO ---
 st.markdown('<div style="text-align: right; color: grey; font-weight: bold;">Ezequiel Miranda</div>', unsafe_allow_html=True)
 
+# --- INICIALIZAÇÃO DE ESTADOS PARA O WHATSAPP ---
+if 'horario_inicio' not in st.session_state:
+    st.session_state.horario_inicio = ""
+if 'ciclo_finalizado' not in st.session_state:
+    st.session_state.ciclo_finalizado = False
+
 # --- 1. NOTIFICAÇÃO PÓS-SYNC ---
 if st.session_state.get('sync_ok'):
     st.toast("Sincronizado com a nuvem com sucesso! ☁️✅", icon="🔄")
@@ -62,6 +68,13 @@ st.markdown("""
     }
     div.stButton > button:first-child[kind="primary"] {
         background-color: #007bff !important; border: none;
+    }
+    /* Estilo para destacar os blocos de rota */
+    .rota-container {
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 5px;
+        border-left: 8px solid;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -118,11 +131,13 @@ with col_clear:
         for rota in st.session_state.dados_controle:
             st.session_state.dados_controle[rota]["veiculos"] = []
             st.session_state.dados_controle[rota]["letra"] = "?"
-            # Limpa doca da rota caso existisse antes (legado)
             if "doca" in st.session_state.dados_controle[rota]:
                 del st.session_state.dados_controle[rota]["doca"]
+        # Resetar horários de ciclo ao limpar tudo
+        st.session_state.horario_inicio = ""
+        st.session_state.ciclo_finalizado = False
         salvar_no_firebase()
-        st.toast("Dados e letras limpos com sucesso! 🗑️", icon="✅")
+        st.toast("Dados e ciclo limpos com sucesso! 🗑️", icon="✅")
         st.rerun()
 
 with col_add:
@@ -142,7 +157,7 @@ with col_h1:
 with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
-# --- 10. EXTRAÇÃO INTELIGENTE (BASEADA NO DESTINO) ---
+# --- 10. EXTRAÇÃO INTELIGENTE ---
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -183,14 +198,12 @@ if uploaded_file:
                         break
                 
                 if rota_vinculada:
-                    # Captura Letra
                     for txt in textos_linha:
                         letra_limpa = re.sub(r'[^A-Z]', '', txt.replace("XPT", ""))
                         if 1 <= len(letra_limpa) <= 2:
                             st.session_state.dados_controle[rota_vinculada]["letra"] = letra_limpa
                             break
                     
-                    # Captura Placa
                     for txt in textos_linha:
                         clean_txt = txt.replace(" ", "").replace("-", "")
                         match = padrao_placa.search(clean_txt)
@@ -198,110 +211,109 @@ if uploaded_file:
                             placa = match.group(0)
                             ja_existe = any(v['placa'] == placa for v in st.session_state.dados_controle[rota_vinculada]["veiculos"])
                             if not ja_existe:
-                                # Adiciona doca vazia ao criar novo veículo
                                 st.session_state.dados_controle[rota_vinculada]["veiculos"].append({"placa": placa, "status": "PENDENTE", "doca": ""})
                             break
             
             salvar_no_firebase()
             st.rerun()
 
-# --- 11. EDIÇÃO INSTANTÂNEA ---
-for rota, info in st.session_state.dados_controle.items():
+# --- 11. EDIÇÃO INSTANTÂNEA COM CORES ---
+# Lista de cores para destacar cada bloco
+cores_blocos = ["#FF4B4B", "#1C83E1", "#00C04A", "#FFA500", "#7D3C98", "#2E4053", "#00D4D4", "#D400D4"]
+
+for idx, (rota, info) in enumerate(st.session_state.dados_controle.items()):
+    cor_atual = cores_blocos[idx % len(cores_blocos)]
+    
+    # Aplica o container colorido
+    st.markdown(f'<div class="rota-container" style="border-left-color: {cor_atual}; background-color: {cor_atual}10;">', unsafe_allow_html=True)
+    
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
-        # Cabeçalho da Rota (Sem Doca aqui)
         c_l, c_h, c_a = st.columns([1, 2, 1])
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
         if c_a.button("➕ Placa", key=f"add_{rota}"):
-            # Adiciona doca vazia ao criar manual
             st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "PENDENTE", "doca": ""})
             salvar_no_firebase()
             st.rerun()
 
-        for idx, v in enumerate(info['veiculos']):
-            # ALTERADO: Colunas ajustadas para incluir Doca no veículo
+        for idx_v, v in enumerate(info['veiculos']):
             c1, c_doca, c2, c_move, c3 = st.columns([2, 1, 2, 0.5, 0.5])
             
-            # Placa
-            nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx}").upper()
+            nova_p = c1.text_input("Placa", v['placa'], key=f"p_{rota}_{idx_v}").upper()
             if nova_p != v['placa']:
                 v['placa'] = nova_p
                 salvar_no_firebase()
 
-            # Doca
-            if "doca" not in v:
-                v["doca"] = ""
-            
-            nova_d = c_doca.text_input("Doca", v['doca'], key=f"d_{rota}_{idx}").upper()
+            if "doca" not in v: v["doca"] = ""
+            nova_d = c_doca.text_input("Doca", v['doca'], key=f"d_{rota}_{idx_v}").upper()
             if nova_d != v['doca']:
                 v['doca'] = nova_d
                 salvar_no_firebase()
 
-            # Status (COM GATILHO DE HORA)
-            status_opcoes = [
-            "Pendente",
-            "Finalizado",
-            "Em Carregamento",
-            "Cancelado",
-            "Aguardando Carregamento"
-                        ]
-            novo_s = c2.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx}")
+            status_opcoes = ["Pendente", "Finalizado", "Em Carregamento", "Cancelado", "Aguardando Carregamento"]
+            novo_s = c2.selectbox("Status", status_opcoes, index=status_opcoes.index(v['status']) if v['status'] in status_opcoes else 0, key=f"s_{rota}_{idx_v}")
             
             if novo_s != v['status']:
                 v['status'] = novo_s
-                
-                # --- INÍCIO DA ALTERAÇÃO (GATILHO DE HORÁRIO) ---
                 if novo_s == "Finalizado":
                     v['hora_finalizacao'] = datetime.now(fuso_br).strftime('%H:%M')
                 elif "hora_finalizacao" in v:
-                    # Opcional: Remove o horário se sair de Finalizado
                     del v['hora_finalizacao']
-                # --- FIM DA ALTERAÇÃO ---
-
                 salvar_no_firebase()
             
-            # Botão Mover
             with c_move:
                 st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
                 with st.popover("🔄", use_container_width=True):
                     for dest in st.session_state.dados_controle.keys():
                         if dest != rota:
-                            if st.button(dest, key=f"mv_{rota}_{dest}_{idx}"):
+                            if st.button(dest, key=f"mv_{rota}_{dest}_{idx_v}"):
                                 st.session_state.dados_controle[dest]["veiculos"].append(v.copy())
-                                info['veiculos'].pop(idx)
+                                info['veiculos'].pop(idx_v)
                                 salvar_no_firebase()
                                 st.rerun()
 
-            # Botão Excluir
             with c3:
                 st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-                if st.button("❌", key=f"x_{rota}_{idx}", use_container_width=True):
-                    info['veiculos'].pop(idx)
+                if st.button("❌", key=f"x_{rota}_{idx_v}", use_container_width=True):
+                    info['veiculos'].pop(idx_v)
                     salvar_no_firebase()
                     st.rerun()
-            
             st.divider()
+    st.markdown('</div>', unsafe_allow_html=True) # Fecha o div colorido
 
-# --- 12. WHATSAPP ---
+# --- 12. WHATSAPP E CONTROLE DE CICLO ---
+st.divider()
+st.subheader("📲 Configuração do Texto WhatsApp")
 
-res_texto = f"*{titulo_geral} {data_carregamento}*\n\n"
+col_bt1, col_bt2, col_bt3 = st.columns([1, 1, 2])
+with col_bt1:
+    if st.button("▶️ Marcar INICIO", use_container_width=True):
+        st.session_state.horario_inicio = datetime.now(fuso_br).strftime('%H:%M')
+        st.rerun()
+with col_bt2:
+    if st.button("🏁 Marcar FIM", use_container_width=True):
+        st.session_state.ciclo_finalizado = True
+        st.rerun()
+with col_bt3:
+    if st.button("🔄 Resetar Status Ciclo", use_container_width=True):
+        st.session_state.horario_inicio = ""
+        st.session_state.ciclo_finalizado = False
+        st.rerun()
+
+# Construção do texto
+res_texto = f"*{titulo_geral} {data_carregamento}*\n"
+if st.session_state.horario_inicio:
+    res_texto += f"INICIO: {st.session_state.horario_inicio}\n"
+res_texto += "\n"
+
 tem_placa = False
-
 for rota, info in st.session_state.dados_controle.items():
     v_validos = [v for v in info['veiculos'] if v['placa'].strip()]
-    
     if v_validos:
         tem_placa = True
-        
-        res_texto += (
-            f"*{rota}* ({info['local']}) ({info['janela']})\n"
-            f"Letra: *{info['letra']}*\n"
-        )
-
+        res_texto += f"*{rota}* ({info['local']}) ({info['janela']})\nLetra: *{info['letra']}*\n"
         for v in v_validos:
-
-            # Mapeamento seguro de status -> emoji
             status_emoji = {
                 "Pendente": "🟡",
                 "Finalizado": f"✅ {v.get('hora_finalizacao', '')}",
@@ -309,23 +321,15 @@ for rota, info in st.session_state.dados_controle.items():
                 "Aguardando Carregamento": "🕑",
                 "Em Carregamento": "⏳"
             }.get(v['status'], "🟡")
-
-            # Doca opcional
             texto_doca = f" [Doca: {v.get('doca', '')}]" if v.get('doca') else ""
-
-            res_texto += (
-                f"🚚 {v['placa']}{texto_doca} - "
-                f"{v['status']} {status_emoji}\n"
-            )
-
+            res_texto += f"🚚 {v['placa']}{texto_doca} - {v['status']} {status_emoji}\n"
         res_texto += "\n"
 
+if st.session_state.ciclo_finalizado:
+    res_texto += "CICLO PM_MM FINALIZADO ✅\n"
 
 if tem_placa:
-    st.divider()
-    
-    st.text_area("Texto para Copiar", res_texto, height=980)
-
+    st.text_area("Texto para Copiar", res_texto, height=400)
     js_code = f"""
     <script>
     function copiarTexto() {{
@@ -335,20 +339,8 @@ if tem_placa:
         }});
     }}
     </script>
-
-    <button style="
-        width:100%;
-        background:#25D366;
-        color:white;
-        border:none;
-        padding:12px;
-        border-radius:8px;
-        font-weight:bold;
-        cursor:pointer;
-    " onclick="copiarTexto()">
+    <button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">
         COPIAR PARA WHATSAPP
     </button>
     """
-
     components.html(js_code, height=70)
-
