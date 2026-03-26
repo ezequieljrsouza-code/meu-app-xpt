@@ -193,7 +193,7 @@ for rota, info in st.session_state.dados_controle.items():
             txt_wa += f"🚚 {v['placa']}{doca_txt} - {v['status']} {emoji}\n"
         txt_wa += "\n"
 
-if st.session_state.ciclo_finalizado: txt_wa += "CICLO FINALIZADO ✅"
+if st.session_state.ciclo_finalizado: txt_wa += "CICLO PM_MM FINALIZADO ✅"
 
 st.text_area("Texto para Copiar", txt_wa, height=800)
 
