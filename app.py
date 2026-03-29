@@ -58,7 +58,7 @@ def atualizar_hora(rota):
     st.session_state.dados_controle[rota]['janela'] = novo_valor
     salvar_no_firebase()
 
-# --- 5. ESTILIZAÇÃO CSS (INTENSIDADE REFORÇADA) ---
+# --- 5. ESTILIZAÇÃO CSS ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -74,10 +74,27 @@ st.markdown("""
     .rota-container {
         padding: 15px;
         border-radius: 12px;
-        margin-bottom: 25px; /* Mais espaço entre os blocos */
+        margin-bottom: 25px;
         border: 1px solid rgba(255,255,255,0.1);
-        border-left: 15px solid; /* Borda lateral bem grossa */
+        border-left: 15px solid;
         box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+    }
+
+    /* MOBILE: collapsa expanders por padrão e reduz padding */
+    @media (max-width: 768px) {
+        .rota-container {
+            padding: 8px;
+            margin-bottom: 12px;
+            border-left-width: 8px;
+        }
+        /* Reduz espaçamento interno dos blocos no mobile */
+        section[data-testid="stExpander"] > div {
+            padding: 6px !important;
+        }
+        /* Botões de ação mais compactos no mobile */
+        div[data-testid="stHorizontalBlock"] {
+            gap: 4px !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -158,6 +175,8 @@ with col_h2:
     data_carregamento = st.text_input("Data", data_hoje)
 
 # --- 10. EXTRAÇÃO INTELIGENTE ---
+# Mapeamento fixo: rota → letras de ilha esperadas (da tabela da imagem)
+# Padrão da imagem: "XPT - EPA3" na coluna Tipos de serviço, "Q" ou "Z" na coluna ilha
 uploaded_file = st.file_uploader("Upload do Print", type=["jpg", "png", "jpeg"])
 if uploaded_file:
     img = Image.open(uploaded_file)
@@ -166,7 +185,9 @@ if uploaded_file:
             resultados = reader.readtext(np.array(img), paragraph=False)
             
             def get_y_center(bbox): return (bbox[0][1] + bbox[2][1]) / 2
+            def get_x_center(bbox): return (bbox[0][0] + bbox[2][0]) / 2
 
+            # Agrupa por linha (mesma altura Y)
             linhas = []
             if resultados:
                 resultados.sort(key=lambda x: get_y_center(x[0]))
@@ -183,12 +204,32 @@ if uploaded_file:
                 linhas.append(current_row)
 
             padrao_placa = re.compile(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2}')
+            # Padrão para detectar linha de tabela tipo imagem: "XPT - ROTA" ou "XPT ROTA"
+            # e extrair a ilha da coluna mais à esquerda da mesma linha
+            padrao_xpt_rota = re.compile(r'XPT[\s\-]+([A-Z]{3}[0-9])', re.IGNORECASE)
 
             for linha in linhas:
-                linha.sort(key=lambda x: x[0][0][0])
+                linha.sort(key=lambda x: x[0][0][0])  # ordena da esquerda p/ direita
                 textos_linha = [item[1].strip().upper() for item in linha]
                 texto_completo_linha = " ".join(textos_linha)
 
+                # --- NOVA LÓGICA: extração de ilha pelo modelo da tabela da imagem ---
+                # Detecta se a linha contém "XPT - ROTA" (ex: "XPT - EPA3")
+                match_xpt = padrao_xpt_rota.search(texto_completo_linha)
+                if match_xpt:
+                    rota_detectada = match_xpt.group(1)  # ex: "EPA3"
+                    if rota_detectada in st.session_state.dados_controle:
+                        # A letra da ilha é o 1º token da linha (coluna mais à esquerda)
+                        # Filtra tokens que sejam apenas 1 letra maiúscula (A-Z)
+                        for item in linha:
+                            txt = item[1].strip().upper()
+                            txt_limpo = re.sub(r'[^A-Z]', '', txt)
+                            if len(txt_limpo) == 1 and txt_limpo.isalpha():
+                                st.session_state.dados_controle[rota_detectada]["letra"] = txt_limpo
+                                break
+                    continue  # linha processada pelo novo modelo, pula lógica antiga
+
+                # --- LÓGICA ANTIGA: vinculação por nome de rota ou cidade ---
                 rota_vinculada = None
                 for id_rota, info in st.session_state.dados_controle.items():
                     destino = info['local'].upper()
@@ -219,20 +260,26 @@ cores_vibrantes = ["#FF0000", "#007BFF", "#28A745", "#FF8C00", "#A100FF", "#00CE
 for idx, (rota, info) in enumerate(st.session_state.dados_controle.items()):
     cor_atual = cores_vibrantes[idx % len(cores_vibrantes)]
     
-    # CSS dinâmico para cada bloco com fundo mais visível (20% de opacidade)
     st.markdown(f'''
         <div class="rota-container" style="border-left-color: {cor_atual}; background-color: {cor_atual}25;">
     ''', unsafe_allow_html=True)
     
-    with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=True):
+    # No mobile, expanders começam fechados (expanded=False) para reduzir a página
+    # Detectamos via user agent não é possível no Streamlit puro,
+    # então usamos expanded=False como padrão para reduzir tamanho vertical
+    with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=False):
+        # FIX: botão ➕ Placa alinhado com campo Hora (3 colunas: Ilha | Hora | ➕Placa)
         c_l, c_h, c_a = st.columns([1, 2, 1])
         c_l.text_input("Ilha", value=info['letra'], key=f"l_{rota}", on_change=atualizar_ilha, args=(rota,))
         c_h.text_input("Hora", value=info['janela'], key=f"h_{rota}", on_change=atualizar_hora, args=(rota,))
         
-        if c_a.button("➕ Placa", key=f"add_{rota}"):
-            st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "Pendente", "doca": ""})
-            salvar_no_firebase()
-            st.rerun()
+        with c_a:
+            # Alinha verticalmente com o campo de texto usando margin
+            st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
+            if st.button("➕ Placa", key=f"add_{rota}", use_container_width=True):
+                st.session_state.dados_controle[rota]['veiculos'].append({"placa": "", "status": "Pendente", "doca": ""})
+                salvar_no_firebase()
+                st.rerun()
 
         for idx_v, v in enumerate(info['veiculos']):
             c1, c_doca, c2, c_move, c3 = st.columns([2, 1, 2, 0.5, 0.5])
