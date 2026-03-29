@@ -255,7 +255,7 @@ if uploaded_file:
             st.rerun()
 
 # --- 11. EDIÇÃO COM DESTAQUE VISUAL REFORÇADO ---
-cores_vibrantes = ["#FF0000", "#007BFF", "#28A745", "#FF8C00", "#A100FF", "#00CED1", "#FF1493", "#FFD700"]
+cores_vibrantes = ["#e57373", "#64b5f6", "#81c784", "#ffb74d", "#ba68c8", "#4db6ac", "#f06292", "#fff176"]
 
 # Injeta CSS para colorir o header de cada expander pelo índice (nth-of-type)
 _total_rotas = len(st.session_state.dados_controle)
@@ -265,20 +265,16 @@ for _i in range(_total_rotas):
     # Seleciona o (n+1)-ésimo details element (expander) na página
     _css_expanders += f"""
     details:nth-of-type({_i + 1}) > summary {{
-        background-color: {_cor} !important;
+        background-color: {_cor}40 !important;
         border-radius: 8px !important;
-        color: white !important;
         font-weight: bold !important;
         padding: 10px 14px !important;
-    }}
-    details:nth-of-type({_i + 1}) > summary svg {{
-        fill: white !important;
-        stroke: white !important;
+        border-left: 5px solid {_cor} !important;
     }}
     details:nth-of-type({_i + 1}) {{
-        border: 2px solid {_cor} !important;
+        border: 1px solid {_cor}66 !important;
         border-radius: 10px !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 12px !important;
     }}
     """
 st.markdown(f"<style>{_css_expanders}</style>", unsafe_allow_html=True)
