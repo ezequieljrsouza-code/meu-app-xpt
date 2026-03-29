@@ -257,6 +257,32 @@ if uploaded_file:
 # --- 11. EDIÇÃO COM DESTAQUE VISUAL REFORÇADO ---
 cores_vibrantes = ["#FF0000", "#007BFF", "#28A745", "#FF8C00", "#A100FF", "#00CED1", "#FF1493", "#FFD700"]
 
+# Injeta CSS para colorir o header de cada expander pelo índice (nth-of-type)
+_total_rotas = len(st.session_state.dados_controle)
+_css_expanders = ""
+for _i in range(_total_rotas):
+    _cor = cores_vibrantes[_i % len(cores_vibrantes)]
+    # Seleciona o (n+1)-ésimo details element (expander) na página
+    _css_expanders += f"""
+    details:nth-of-type({_i + 1}) > summary {{
+        background-color: {_cor} !important;
+        border-radius: 8px !important;
+        color: white !important;
+        font-weight: bold !important;
+        padding: 10px 14px !important;
+    }}
+    details:nth-of-type({_i + 1}) > summary svg {{
+        fill: white !important;
+        stroke: white !important;
+    }}
+    details:nth-of-type({_i + 1}) {{
+        border: 2px solid {_cor} !important;
+        border-radius: 10px !important;
+        margin-bottom: 16px !important;
+    }}
+    """
+st.markdown(f"<style>{_css_expanders}</style>", unsafe_allow_html=True)
+
 for idx, (rota, info) in enumerate(st.session_state.dados_controle.items()):
     cor_atual = cores_vibrantes[idx % len(cores_vibrantes)]
     
@@ -264,9 +290,6 @@ for idx, (rota, info) in enumerate(st.session_state.dados_controle.items()):
         <div class="rota-container" style="border-left-color: {cor_atual}; background-color: {cor_atual}25;">
     ''', unsafe_allow_html=True)
     
-    # No mobile, expanders começam fechados (expanded=False) para reduzir a página
-    # Detectamos via user agent não é possível no Streamlit puro,
-    # então usamos expanded=False como padrão para reduzir tamanho vertical
     with st.expander(f"📍 {rota} | Ilha: {info['letra']} | {info['local']}", expanded=False):
         # FIX: botão ➕ Placa alinhado com campo Hora (3 colunas: Ilha | Hora | ➕Placa)
         c_l, c_h, c_a = st.columns([1, 2, 1])
