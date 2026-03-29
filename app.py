@@ -364,6 +364,6 @@ for rota, info in st.session_state.dados_controle.items():
 if st.session_state.ciclo_finalizado: res_texto += "CICLO PM_MM FINALIZADO ✅\n"
 
 if tem_placa:
-    st.text_area("Texto para Copiar", res_texto, height=800)
+    st.text_area("Texto para Copiar", res_texto, height=850)
     js_code = f"""<script>function copiarTexto() {{ const textToCopy = `{res_texto}`; navigator.clipboard.writeText(textToCopy).then(() => {{ alert("Texto copiado para o WhatsApp! ✅"); }}); }}</script><button style="width:100%; background:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;" onclick="copiarTexto()">COPIAR PARA WHATSAPP</button>"""
     components.html(js_code, height=70)
