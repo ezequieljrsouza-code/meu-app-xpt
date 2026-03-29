@@ -333,7 +333,7 @@ for idx, (rota, info) in enumerate(st.session_state.dados_controle.items()):
 
 # --- 12. WHATSAPP ---
 st.divider()
-st.subheader("📲 Configuração do Texto WhatsApp")
+st.subheader("📲 Texto Para WhatsApp")
 col_bt1, col_bt2, col_bt3 = st.columns([1, 1, 2])
 with col_bt1:
     if st.button("▶️ Marcar INICIO", use_container_width=True):
